@@ -1,0 +1,101 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Edit Subgroup {{ subgroup.subgroup_number }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Edit Subgroup {{ subgroup.subgroup_number }} - Checklist #{{ checklist.id }}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="editSubgroupForm">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="uv_vacuum_test" class="form-label">UV Vacuum Test (kPa) *</label>
+                                    {{ form.uv_vacuum_test }}
+                                    <div class="form-text">Range: -43 to -35 kPa</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="uv_flow_value" class="form-label">UV Flow Value (LPM) *</label>
+                                    {{ form.uv_flow_value }}
+                                    <div class="form-text">Range: 30-40 LPM</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="umbrella_valve_assembly" class="form-label">Umbrella Valve Assembly *</label>
+                                    {{ form.umbrella_valve_assembly }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="uv_clip_pressing" class="form-label">UV Clip Pressing *</label>
+                                    {{ form.uv_clip_pressing }}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="workstation_clean" class="form-label">Workstation Clean *</label>
+                                    {{ form.workstation_clean }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="bin_contamination_check" class="form-label">Bin Contamination Check *</label>
+                            {{ form.bin_contamination_check }}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Update Subgroup</button>
+                            <a href="{% url 'checklist_detail' checklist.id %}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('editSubgroupForm');
+    
+    form.addEventListener('submit', function(e) {
+        const uvVacuum = parseFloat(form.uv_vacuum_test.value);
+        const uvFlow = parseFloat(form.uv_flow_value.value);
+        
+        let isValid = true;
+        let errorMessage = [];
+
+        if (uvVacuum < -43 || uvVacuum > -35) {
+            errorMessage.push('UV vacuum test must be between -43 and -35 kPa');
+            isValid = false;
+        }
+
+        if (uvFlow < 30 || uvFlow > 40) {
+            errorMessage.push('UV flow value must be between 30 and 40 LPM');
+            isValid = false;
+        }
+
+        if (!isValid) {
+            e.preventDefault();
+            alert(errorMessage.join('\n'));
+        }
+    });
+});
+</script>
+{% endblock %}

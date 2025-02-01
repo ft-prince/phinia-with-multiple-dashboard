@@ -1,0 +1,42 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Add Concern - Checklist #{{ checklist.id }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">Add Concern - Checklist #{{ checklist.id }}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="concern_identified" class="form-label">Concern Identified *</label>
+                            {{ form.concern_identified }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="cause_if_known" class="form-label">Cause (if known)</label>
+                            {{ form.cause_if_known }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="action_taken" class="form-label">Action Taken *</label>
+                            {{ form.action_taken }}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-warning">Submit Concern</button>
+                            <a href="{% url 'checklist_detail' checklist.id %}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

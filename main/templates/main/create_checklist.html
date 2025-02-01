@@ -1,0 +1,205 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Create New Checklist{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Create New Checklist</h5>
+                </div>
+                <div class="card-body">
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <h6>Please correct the following errors:</h6>
+                        {% for field in form %}
+                            {% for error in field.errors %}
+                                <p>{{ field.label }}: {{ error }}</p>
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <form method="post" id="checklistForm">
+                        {% csrf_token %}
+                        
+                        <!-- Initial Setup Section -->
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2">Initial Setup</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="selected_model" class="form-label">Select Model *</label>
+                                        {{ form.selected_model }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Measurements Section -->
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2">Measurements</h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="line_pressure" class="form-label">Line Pressure (4.5 - 5.5 bar) *</label>
+                                        {{ form.line_pressure }}
+                                        <div class="form-text">Range: 4.5 - 5.5 bar</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="uv_flow_input_pressure" class="form-label">UV Flow Input Pressure *</label>
+                                        {{ form.uv_flow_input_pressure }}
+                                        <div class="form-text">Range: 11-15 kPa</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="test_pressure_vacuum" class="form-label">Test Pressure Vacuum *</label>
+                                        {{ form.test_pressure_vacuum }}
+                                        <div class="form-text">Range: 0.25 - 0.3 MPa</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status Checks Section -->
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2">Status Checks</h6>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="mb-3">
+                                        <label for="oring_condition" class="form-label">O-ring Condition *</label>
+                                        {{ form.oring_condition }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="mb-3">
+                                        <label for="master_verification_lvdt" class="form-label">LVDT Verification *</label>
+                                        {{ form.master_verification_lvdt }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="mb-3">
+                                        <label for="good_bad_master_verification" class="form-label">Good/Bad Master Check *</label>
+                                        {{ form.good_bad_master_verification }}
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="mb-3">
+                                        <label for="tool_alignment" class="form-label">Tool Alignment *</label>
+                                        {{ form.tool_alignment }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Part Numbers Section -->
+<div class="mb-4">
+    <h6 class="border-bottom pb-2">IDs and Part Numbers</h6>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="mb-3">
+                <label for="top_tool_id" class="form-label">Top Tool ID *</label>
+                {{ form.top_tool_id }}
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="mb-3">
+                <label for="bottom_tool_id" class="form-label">Bottom Tool ID *</label>
+                {{ form.bottom_tool_id }}
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="mb-3">
+                <label for="uv_assy_stage_id" class="form-label">UV Assembly Stage ID *</label>
+                {{ form.uv_assy_stage_id }}
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="mb-3">
+                <label for="retainer_part_no" class="form-label">Retainer Part No *</label>
+                {{ form.retainer_part_no }}
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="mb-3">
+                <label for="uv_clip_part_no" class="form-label">UV Clip Part No *</label>
+                {{ form.uv_clip_part_no }}
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="mb-3">
+                <label for="umbrella_part_no" class="form-label">Umbrella Part No *</label>
+                {{ form.umbrella_part_no }}
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="retainer_id_lubrication" class="form-label">Retainer ID Lubrication *</label>
+                {{ form.retainer_id_lubrication }}
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label for="error_proofing_verification" class="form-label">Error Proofing Verification *</label>
+                {{ form.error_proofing_verification }}
+            </div>
+        </div>
+    </div>
+</div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Create Checklist and Continue to Subgroup 1</button>
+                            <a href="{% url 'operator_dashboard' %}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('checklistForm');
+    
+    form.addEventListener('submit', function(e) {
+        const linePressure = parseFloat(form.line_pressure.value);
+        const uvPressure = parseFloat(form.uv_flow_input_pressure.value);
+        const testPressure = parseFloat(form.test_pressure_vacuum.value);
+        
+        let isValid = true;
+        let errorMessage = [];
+
+        if (linePressure < 4.5 || linePressure > 5.5) {
+            errorMessage.push('Line pressure must be between 4.5 and 5.5 bar');
+            isValid = false;
+        }
+
+        if (uvPressure < 11 || uvPressure > 15) {
+            errorMessage.push('UV flow input pressure must be between 11 and 15 kPa');
+            isValid = false;
+        }
+
+        if (testPressure < 0.25 || testPressure > 0.3) {
+            errorMessage.push('Test pressure vacuum must be between 0.25 and 0.3 MPa');
+            isValid = false;
+        }
+
+        if (!isValid) {
+            e.preventDefault();
+            alert(errorMessage.join('\n'));
+        }
+    });
+});
+</script>
+{% endblock %}

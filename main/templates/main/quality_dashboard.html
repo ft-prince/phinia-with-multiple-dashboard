@@ -1,0 +1,336 @@
+{% extends 'main/base.html' %}
+{% load custom_tags %}
+
+{% block title %}Quality Supervisor Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Quality Supervisor Dashboard</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>Welcome, {{ request.user.get_full_name|default:request.user.username }}</h6>
+                            <p class="text-muted mb-0">Quality Supervisor</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Current Date</h6>
+                            <p class="text-muted mb-0">{{ current_date|date:"F d, Y" }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Current Shift</h6>
+                            <p class="text-muted mb-0">{{ current_shift|title }} Shift</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ pending_verifications.count }}</h3>
+                    <p class="mb-0">Pending Approvals</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ quality_approved }}</h3>
+                    <p class="mb-0">Approved Today</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ quality_rejected }}</h3>
+                    <p class="mb-0">Rejected Today</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ approval_rate }}%</h3>
+                    <p class="mb-0">Approval Rate</p>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- In Progress Checklists -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">In Progress Checklists</h5>
+                <span class="badge bg-light text-dark">{{ in_progress_checklists.count }} Active</span>
+            </div>
+            <div class="card-body">
+                {% if in_progress_checklists %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Operator</th>
+                                <th>Model</th>
+                                <th>Progress</th>
+                                <th>Measurements</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in in_progress_checklists %}
+                            <tr>
+                                <td>{{ entry.created_at|time:"H:i" }}</td>
+                                <td>{{ entry.shift.operator.username }}</td>
+                                <td>{{ entry.selected_model }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        {% with progress=entry.subgroup_count|multiply:16.67 %}
+                                        <div class="progress-bar {% if not entry.all_measurements_ok %}bg-warning{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ progress }}%" 
+                                             aria-valuenow="{{ progress }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            {{ entry.subgroup_count }}/6
+                                        </div>
+                                        {% endwith %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if entry.all_measurements_ok %}
+                                        <span class="badge bg-success">All OK</span>
+                                    {% else %}
+                                        <span class="badge bg-warning" 
+                                              data-bs-toggle="tooltip" 
+                                              data-bs-placement="top"
+                                              title="{{ entry.measurement_issues|join:', ' }}">
+                                            Issues Found
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'checklist_detail' entry.id %}" 
+                                       class="btn btn-info btn-sm">View</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No checklists currently in progress.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Critical Issues Alert (if any) -->
+{% if critical_issues %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="alert alert-danger">
+            <h6 class="alert-heading">Critical Issues Detected!</h6>
+            <ul class="mb-0">
+                {% for issue in critical_issues %}
+                <li>
+                    <strong>{{ issue.model }} - {{ issue.operator }}:</strong> 
+                    {{ issue.issues|join:', ' }}
+                    <a href="{% url 'checklist_detail' issue.checklist_id %}" class="alert-link">View</a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endif %}
+    <!-- Pending Quality Verifications -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">Pending Quality Verifications</h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_verifications %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Operator</th>
+                                    <th>Model</th>
+                                    <th>Supervisor</th>
+                                    <th>Subgroups</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in pending_verifications %}
+                                <tr>
+                                    <td>{{ entry.created_at|time:"H:i" }}</td>
+                                    <td>{{ entry.shift.operator.username }}</td>
+                                    <td>{{ entry.selected_model }}</td>
+                                    <td>{{ entry.shift.shift_supervisor.username }}</td>
+                                    <td>{{ entry.subgroup_entries.count }}/6</td>
+                                    <td>
+                                        <a href="{% url 'quality_verify' entry.id %}" 
+                                           class="btn btn-primary btn-sm">Verify</a>
+                                        <a href="{% url 'checklist_detail' entry.id %}" 
+                                           class="btn btn-info btn-sm">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No pending quality verifications.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Quality Decisions -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Recent Quality Decisions</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_verifications %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Operator</th>
+                                    <th>Model</th>
+                                    <th>Decision</th>
+                                    <th>Comments</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in recent_verifications %}
+                                <tr>
+                                    <td>{{ entry.created_at|time:"H:i" }}</td>
+                                    <td>{{ entry.shift.operator.username }}</td>
+                                    <td>{{ entry.selected_model }}</td>
+                                    <td>
+                                        <span class="badge {% if entry.status == 'quality_approved' %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ entry.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ entry.quality_comments|truncatechars:30 }}</td>
+                                    <td>
+                                        <a href="{% url 'checklist_detail' entry.id %}" 
+                                           class="btn btn-info btn-sm">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No recent quality decisions.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quality Metrics -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Quality Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Model-wise Statistics</h6>
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Model</th>
+                                        <th>Total</th>
+                                        <th>Approved</th>
+                                        <th>Rejected</th>
+                                        <th>Rate</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for model in model_stats %}
+                                    <tr>
+                                        <td>{{ model.model }}</td>
+                                        <td>{{ model.total }}</td>
+                                        <td>{{ model.approved }}</td>
+                                        <td>{{ model.rejected }}</td>
+                                        <td>{{ model.rate }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Quality Trends (Last 7 Days)</h6>
+                            <canvas id="qualityTrendChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Auto refresh the page every 5 minutes
+    setTimeout(function() {
+        location.reload();
+    }, 300000);
+
+    // Quality Trend Chart
+    const ctx = document.getElementById('qualityTrendChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ trend_dates|safe }},
+            datasets: [{
+                label: 'Approval Rate',
+                data: {{ trend_rates|safe }},
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

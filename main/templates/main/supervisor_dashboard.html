@@ -1,0 +1,294 @@
+{% extends 'main/base.html' %}
+{% load custom_tags %}
+
+{% block title %}Supervisor Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-tachometer-alt me-2"></i>Supervisor Dashboard</h5>
+                    <span id="live-clock" class="badge bg-light text-dark"></span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-user-circle fa-2x text-primary me-3"></i>
+                                <div>
+                                    <h6 class="mb-1">Welcome, {{ request.user.get_full_name|default:request.user.username }}</h6>
+                                    <p class="text-muted mb-0"><i class="fas fa-user-shield me-1"></i>Shift Supervisor</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="d-flex align-items-center justify-content-center">
+                                <i class="fas fa-calendar-alt fa-2x text-primary me-3"></i>
+                                <div>
+                                    <h6 class="mb-1">{{ current_date|date:"l" }}</h6>
+                                    <p class="text-muted mb-0">{{ current_date|date:"F d, Y" }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="d-flex align-items-center justify-content-end">
+                                <i class="fas fa-clock fa-2x text-primary me-3"></i>
+                                <div>
+                                    <h6 class="mb-1">Current Shift</h6>
+                                    <p class="text-muted mb-0">{{ current_shift|title }} Shift</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="d-flex align-items-center justify-content-center mb-3">
+                        <i class="fas fa-clock fa-3x text-info"></i>
+                    </div>
+                    <h3 class="mb-2 text-info">{{ pending_entries.count }}</h3>
+                    <p class="text-muted mb-0">Pending Verifications</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="d-flex align-items-center justify-content-center mb-3">
+                        <i class="fas fa-check-circle fa-3x text-success"></i>
+                    </div>
+                    <h3 class="mb-2 text-success">{{ recent_verified.count }}</h3>
+                    <p class="text-muted mb-0">Recently Verified</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="d-flex align-items-center justify-content-center mb-3">
+                        <i class="fas fa-calendar-check fa-3x text-warning"></i>
+                    </div>
+                    <h3 class="mb-2 text-warning">{{ total_today }}</h3>
+                    <p class="text-muted mb-0">Total Today</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body text-center">
+                    <div class="d-flex align-items-center justify-content-center mb-3">
+                        <i class="fas fa-chart-line fa-3x text-primary"></i>
+                    </div>
+                    <h3 class="mb-2 text-primary">{{ approval_rate }}%</h3>
+                    <p class="text-muted mb-0">Approval Rate</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Pending Verifications -->
+<!-- Pending Verifications -->
+<div class="row mb-4">
+    <div class="col-md-12">
+        <!-- Ready for Verification -->
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Ready for Verification ({{ complete_pending|length }})</h5>
+            </div>
+            <div class="card-body">
+                {% if complete_pending %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Operator</th>
+                                <th>Model</th>
+                                <th>Subgroups</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in complete_pending %}
+                            <tr>
+                                <td>{{ entry.created_at|time:"H:i" }}</td>
+                                <td>{{ entry.shift.operator.username }}</td>
+                                <td>{{ entry.selected_model }}</td>
+                                <td>
+                                    <span class="badge bg-success">Complete (6/6)</span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{% url 'checklist_detail' entry.id %}" 
+                                           class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                        <a href="{% url 'supervisor_verify' entry.id %}" 
+                                           class="btn btn-success btn-sm">
+                                            <i class="fas fa-check"></i> Verify
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No checklists ready for verification.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- In Progress -->
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0">In Progress ({{ incomplete_pending|length }})</h5>
+            </div>
+            <div class="card-body">
+                {% if incomplete_pending %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Operator</th>
+                                <th>Model</th>
+                                <th>Progress</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in incomplete_pending %}
+                            <tr>
+                                <td>{{ entry.created_at|time:"H:i" }}</td>
+                                <td>{{ entry.shift.operator.username }}</td>
+                                <td>{{ entry.selected_model }}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-info" 
+                                             role="progressbar" 
+                                             style="width: {{ entry.subgroup_count|multiply:16.67 }}%">
+                                            {{ entry.subgroup_count }}/6
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="{% url 'checklist_detail' entry.id %}" 
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No checklists in progress.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Recent Verifications -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white border-bottom">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-success">
+                            <i class="fas fa-history me-2"></i>Recently Verified
+                        </h5>
+                        <span class="badge bg-success">{{ recent_verified.count }} Verified</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if recent_verified %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Verified At</th>
+                                    <th>Operator</th>
+                                    <th>Model</th>
+                                    <th>Quality Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in recent_verified %}
+                                <tr>
+                                    <td>{{ entry.created_at|time:"H:i" }}</td>
+                                    <td>{{ entry.shift.operator.username }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ entry.selected_model }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if entry.status == 'quality_approved' %}bg-success
+                                                     {% elif entry.status == 'rejected' %}bg-danger
+                                                     {% else %}bg-primary{% endif %}">
+                                            {{ entry.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'checklist_detail' entry.id %}" 
+                                           class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye"></i> View Details
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <p class="text-muted mb-0">No recently verified entries</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Enable tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+
+    // Live clock
+    function updateClock() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString();
+        document.getElementById('live-clock').textContent = timeString;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // Auto refresh the page every 5 minutes
+    setTimeout(function() {
+        location.reload();
+    }, 300000);
+});
+</script>
+{% endblock %}

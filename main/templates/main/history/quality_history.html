@@ -1,0 +1,115 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Quality History{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h2>Quality History</h2>
+        </div>
+    </div>
+
+    <!-- Pending Verifications -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">Pending Quality Verifications</h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_verifications %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Shift</th>
+                                    <th>Operator</th>
+                                    <th>Model</th>
+                                    <th>Supervisor</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in pending_verifications %}
+                                <tr>
+                                    <td>{{ entry.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ entry.shift.get_shift_type_display }}</td>
+                                    <td>{{ entry.shift.operator.username }}</td>
+                                    <td>{{ entry.selected_model }}</td>
+                                    <td>{{ entry.shift.shift_supervisor.username }}</td>
+                                    <td>
+                                        <a href="{% url 'quality_verify' entry.id %}" 
+                                           class="btn btn-primary btn-sm">Verify</a>
+                                        <a href="{% url 'checklist_detail' entry.id %}" 
+                                           class="btn btn-info btn-sm">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No pending verifications.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verified Entries -->
+    <div class="row">
+        <div class="col">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Verified Entries</h5>
+                </div>
+                <div class="card-body">
+                    {% if verified_entries %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Shift</th>
+                                    <th>Operator</th>
+                                    <th>Model</th>
+                                    <th>Status</th>
+                                    <th>Comments</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in verified_entries %}
+                                <tr>
+                                    <td>{{ entry.created_at|date:"Y-m-d H:i" }}</td>
+                                    <td>{{ entry.shift.get_shift_type_display }}</td>
+                                    <td>{{ entry.shift.operator.username }}</td>
+                                    <td>{{ entry.selected_model }}</td>
+                                    <td>
+                                        <span class="badge {% if entry.status == 'quality_approved' %}bg-success
+                                                     {% elif entry.status == 'rejected' %}bg-danger
+                                                     {% else %}bg-primary{% endif %}">
+                                            {{ entry.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ entry.quality_comments|default:"-"|truncatechars:30 }}</td>
+                                    <td>
+                                        <a href="{% url 'checklist_detail' entry.id %}" 
+                                           class="btn btn-info btn-sm">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted mb-0">No verified entries.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

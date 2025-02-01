@@ -1,0 +1,449 @@
+{% extends 'main/base.html' %}
+{% load custom_tags %}
+
+{% block title %}Checklist Detail{% endblock %}
+<style>
+    .btn-success {
+        padding: 8px 20px;
+        font-weight: 500;
+    }
+    .btn-success i {
+        margin-right: 5px;
+    }
+    .card-header .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+        color: white;
+    }
+    .card-header .btn-success:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+    }
+
+    .measurement-value {
+        font-family: monospace;
+        padding: 2px 6px;
+        background-color: #f8f9fa;
+        border-radius: 3px;
+    }
+    
+    .checklist-status {
+        min-width: 120px;
+        text-align: center;
+    }
+    
+    .validation-badge {
+        min-width: 50px;
+        display: inline-block;
+    }
+    
+    .measurement-table th {
+        width: 35%;
+        font-weight: 500;
+    }
+    
+    .timeline-item {
+        padding: 15px;
+        border-left: 3px solid #dee2e6;
+        margin-bottom: 10px;
+        background-color: #f8f9fa;
+    }
+    
+    .timeline-item.warning {
+        border-left-color: #ffc107;
+    }
+    
+    .timeline-item.success {
+        border-left-color: #28a745;
+    }
+
+    </style>
+    
+{% block content %}
+<div class="container">
+
+    <!-- Critical Issues Alert -->
+    {% if measurement_validation.critical_issues %}
+    <div class="alert alert-danger alert-dismissible fade show mb-4">
+        <div class="d-flex">
+            <div class="me-3">
+                <i class="fas fa-exclamation-triangle fa-2x"></i>
+            </div>
+            <div>
+                <h5 class="alert-heading mb-2">Quality Control Issues Detected</h5>
+                <ul class="list-unstyled mb-0">
+                    {% for issue in measurement_validation.critical_issues %}
+                    <li><i class="fas fa-circle fa-xs me-2"></i>{{ issue.message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    
+    <!-- Header Information -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Quality Control Checklist #{{ checklist.id }}</h5>
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-light text-dark me-3">
+                            {{ subgroup_metrics.total_count }}/6 Measurements Recorded
+                        </span>
+                        <span class="checklist-status badge {% if checklist.status == 'pending' %}bg-warning
+                                     {% elif checklist.status == 'supervisor_approved' %}bg-info
+                                     {% elif checklist.status == 'quality_approved' %}bg-success
+                                     {% else %}bg-danger{% endif %}">
+                            {{ checklist.get_status_display }}
+                        </span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <!-- Production Details -->
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 h-100">
+                                <h6 class="text-secondary mb-3">Production Information</h6>
+                                <p class="mb-2"><strong>Date:</strong> {{ checklist.shift.date }}</p>
+                                <p class="mb-0"><strong>Shift:</strong> {{ checklist.shift.get_shift_type_display }}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Personnel -->
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 h-100">
+                                <h6 class="text-secondary mb-3">Personnel</h6>
+                                <p class="mb-2"><strong>Operator:</strong> {{ checklist.shift.operator.username }}</p>
+                                <p class="mb-0"><strong>Product Model:</strong> {{ checklist.selected_model }}</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Timing -->
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 h-100">
+                                <h6 class="text-secondary mb-3">Timing Metrics</h6>
+                                <p class="mb-2"><strong>Started:</strong> {{ checklist.created_at|date:"Y-m-d H:i" }}</p>
+                                <p class="mb-0"><strong>Duration:</strong> {{ timing_metrics.total_duration|floatformat:1 }} hours</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Progress -->
+                        <div class="col-md-3">
+                            <div class="border rounded p-3 h-100">
+                                <h6 class="text-secondary mb-3">Status & Progress</h6>
+                                <div class="progress mb-2" style="height: 20px;">
+                                    <div class="progress-bar {% if subgroup_metrics.completion_percentage == 100 %}bg-success{% else %}bg-primary{% endif %}"
+                                         role="progressbar"
+                                         style="width: {{ subgroup_metrics.completion_percentage }}%">
+                                        {{ subgroup_metrics.completion_percentage|floatformat:0 }}%
+                                    </div>
+                                </div>
+                                <small class="text-muted">{{ checklist.get_status_display }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- Initial Measurements -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Initial Quality Control Measurements</h5>
+                <span class="badge {% if measurement_validation.all_base_ok %}bg-success{% else %}bg-danger{% endif %}">
+                    {% if measurement_validation.all_base_ok %}All Parameters Within Range{% else %}Parameters Out of Range{% endif %}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Pressure Measurements -->
+                    <div class="col-md-6">
+                        <table class="table table-sm measurement-table">
+                            <tbody>
+                                <tr>
+                                    <th scope="row">Line Pressure</th>
+                                    <td>
+                                        <span class="measurement-value">{{ checklist.line_pressure }} bar</span>
+                                        <span class="validation-badge badge {% if measurement_validation.base_measurements.line_pressure_ok %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if measurement_validation.base_measurements.line_pressure_ok %}In Range{% else %}Out of Range{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">UV Flow Input Pressure</th>
+                                    <td>
+                                        <span class="measurement-value">{{ checklist.uv_flow_input_pressure }} kPa</span>
+                                        <span class="validation-badge badge {% if measurement_validation.base_measurements.uv_flow_input_ok %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if measurement_validation.base_measurements.uv_flow_input_ok %}In Range{% else %}Out of Range{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Test Pressure Vacuum</th>
+                                    <td>
+                                        <span class="measurement-value">{{ checklist.test_pressure_vacuum }} MPa</span>
+                                        <span class="validation-badge badge {% if measurement_validation.base_measurements.test_pressure_ok %}bg-success{% else %}bg-danger{% endif %}">
+                                            {% if measurement_validation.base_measurements.test_pressure_ok %}In Range{% else %}Out of Range{% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Quality Checks -->
+                    <div class="col-md-6">
+                        <table class="table table-sm measurement-table">
+                            <tbody>
+                                <tr>
+                                    <th scope="row">O-ring Condition</th>
+                                    <td>
+                                        <span class="badge {% if checklist.oring_condition == 'OK' %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ checklist.oring_condition }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">LVDT Verification</th>
+                                    <td>
+                                        <span class="badge {% if checklist.master_verification_lvdt == 'OK' %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ checklist.master_verification_lvdt }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Tool Alignment</th>
+                                    <td>
+                                        <span class="badge {% if checklist.tool_alignment == 'OK' %}bg-success{% else %}bg-danger{% endif %}">
+                                            {{ checklist.tool_alignment }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Subgroup Measurements -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                <div>
+                    <h5 class="mb-0">Periodic Measurement Records</h5>
+                    <small class="text-muted">2-Hour Interval Measurements</small>
+                </div>
+                {% if can_add_subgroup %}
+                <a href="{% url 'add_subgroup' checklist.id %}" class="btn btn-primary">
+                    <i class="fas fa-plus-circle me-2"></i>Record New Measurement
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if subgroups %}
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center">Sequence</th>
+                                <th>Time</th>
+                                <th>UV Vacuum Test (kPa)</th>
+                                <th>UV Flow Value (LPM)</th>
+                                <th>Assembly</th>
+                                <th>Quality Checks</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for subgroup in subgroups %}
+                            <tr>
+                                <td class="text-center"><strong>#{{ subgroup.subgroup_number }}</strong></td>
+                                <td>{{ subgroup.timestamp|time:"H:i" }}</td>
+                                <td>
+                                    <span class="measurement-value">{{ subgroup.uv_vacuum_test }}</span>
+                                    <span class="badge {% if subgroup.validation_status.uv_vacuum_test_ok %}bg-success{% else %}bg-danger{% endif %}">
+                                        {% if subgroup.validation_status.uv_vacuum_test_ok %}In Range{% else %}Out of Range{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="measurement-value">{{ subgroup.uv_flow_value }}</span>
+                                    <span class="badge {% if subgroup.validation_status.uv_flow_value_ok %}bg-success{% else %}bg-danger{% endif %}">
+                                        {% if subgroup.validation_status.uv_flow_value_ok %}In Range{% else %}Out of Range{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge {% if subgroup.umbrella_valve_assembly == 'OK' %}bg-success{% else %}bg-danger{% endif %}">
+                                        Assembly {{ subgroup.umbrella_valve_assembly }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-2">
+                                        <span class="badge {% if subgroup.workstation_clean == 'Yes' %}bg-success{% else %}bg-danger{% endif %}">
+                                            Cleanliness
+                                        </span>
+                                        <span class="badge {% if subgroup.bin_contamination_check == 'Yes' %}bg-success{% else %}bg-danger{% endif %}">
+                                            Contamination
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if user.user_type == 'operator' and checklist.status == 'pending' %}
+                                    <a href="{% url 'edit_subgroup' checklist.id subgroup.id %}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-edit me-1"></i>Edit
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Measurement Progress -->
+                <div class="mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">Measurement Progress</h6>
+                        <small class="text-muted">Target: 6 measurements</small>
+                    </div>
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar bg-primary" 
+                             role="progressbar" 
+                             style="width: {{ total_subgroups|multiply:16.67 }}%">
+                            {{ total_subgroups }}/6 Complete
+                        </div>
+                    </div>
+                </div>
+
+                {% else %}
+                <div class="text-center py-5">
+                    <p class="text-muted mb-3">No measurements recorded</p>
+                    {% if checklist.status == 'pending' %}
+                    <a href="{% url 'add_subgroup' checklist.id %}" class="btn btn-primary">
+                        <i class="fas fa-plus-circle me-2"></i>Record First Measurement
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Verification and Concerns -->
+<div class="row">
+    <!-- Verification Section -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Quality Verifications</h5>
+                <div>
+                    {% if verification_status.can_verify_supervisor %}
+                    <a href="{% url 'supervisor_verify' checklist.id %}" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Supervisor Verification
+                    </a>
+                    {% elif verification_status.can_verify_quality %}
+                    <a href="{% url 'quality_verify' checklist.id %}" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Quality Verification
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                {% if checklist.verifications.exists %}
+                <div class="timeline-container">
+                    {% for verification in checklist.verifications.all %}
+                    <div class="timeline-item {% if verification.verified_by.user_type == 'quality_supervisor' %}success{% else %}warning{% endif %}">
+                        <h6 class="mb-1">{{ verification.get_verifier_type_display }}</h6>
+                        <p class="mb-1">Verified by: {{ verification.verified_by.get_full_name }}</p>
+                        <small class="text-muted">{{ verification.verified_at|date:"Y-m-d H:i" }}</small>
+                        {% if verification.comments %}
+                        <p class="mt-2 mb-0 text-muted">{{ verification.comments }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No verifications recorded</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Concerns Section -->
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Quality Concerns</h5>
+                {% if checklist.status != 'quality_approved' %}
+                <a href="{% url 'add_concern' checklist.id %}" class="btn btn-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Report Concern
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if concerns %}
+                <div class="accordion" id="concernsAccordion">
+                    {% for concern in concerns %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#collapse-{{ forloop.counter }}">
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <span>Concern Report #{{ forloop.counter }}</span>
+                                    <span class="badge {% if concern.is_resolved %}bg-success{% else %}bg-warning{% endif %}">
+                                        {% if concern.is_resolved %}Resolved{% else %}Open{% endif %}
+                                    </span>
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="collapse-{{ forloop.counter }}" 
+                             class="accordion-collapse collapse" 
+                             data-bs-parent="#concernsAccordion">
+                            <div class="accordion-body">
+                                <p><strong>Description:</strong><br>{{ concern.concern.concern_identified }}</p>
+                                {% if concern.concern.cause_if_known %}
+                                <p><strong>Root Cause:</strong><br>{{ concern.concern.cause_if_known }}</p>
+                                {% endif %}
+                                {% if concern.concern.action_taken %}
+                                <p><strong>Resolution:</strong><br>{{ concern.concern.action_taken }}</p>
+                                {% endif %}
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        Reported: {{ concern.concern.created_at|date:"Y-m-d H:i" }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No quality concerns reported</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+// Initialize tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl)
+});
+});
+</script>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Operator Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Shift Information -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Current Shift Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>Date: {{ current_date }}</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Shift: {{ current_shift }}</h6>
+                        </div>
+                        <div class="col-md-4">
+                            <h6>Operator: {{ request.user.username }}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- Add this in the card header section -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6 class="card-title">Total Checklists</h6>
+                <p class="card-text h4">{{ dashboard_stats.total_checklists }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6 class="card-title">Approved</h6>
+                <p class="card-text h4">{{ dashboard_stats.approved_checklists }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h6 class="card-title">Rejected</h6>
+                <p class="card-text h4">{{ dashboard_stats.rejected_checklists }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning">
+            <div class="card-body">
+                <h6 class="card-title">Pending Verification</h6>
+                <p class="card-text h4">{{ dashboard_stats.pending_verification }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+    <!-- Action Buttons -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            {% if can_create_new %}
+            <a href="{% url 'create_checklist' %}" class="btn btn-primary">Start New Checklist</a>
+            {% endif %}
+            
+            {% if active_checklist and can_add_subgroup %}
+            <a href="{% url 'add_subgroup' checklist_id=active_checklist.id %}" class="btn btn-success">Add New Subgroup</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Active Checklist -->
+    {% if active_checklist %}
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Active Checklist</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Started At</th>
+                                    <th>Model</th>
+                                    <th>Subgroups Completed</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>{{ active_checklist.created_at|date:"H:i" }}</td>
+                                    <td>{{ active_checklist.selected_model }}</td>
+                                    <td>{{ active_checklist.subgroup_entries.count }}/6</td>
+                                    <td>{{ active_checklist.status|title }}</td>
+                                    <td>
+                                        <a href="{% url 'checklist_detail' checklist_id=active_checklist.id %}" 
+                                           class="btn btn-sm btn-info">View Details</a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Entries -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">Recent Entries</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_entries %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Shift</th>
+                                    <th>Model</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in recent_entries %}
+                                <tr>
+                                    <td>{{ entry.timestamp|date:"Y-m-d" }}</td>
+                                    <td>{{ entry.checklist.shift.get_shift_type_display }}</td>
+                                    <td>{{ entry.checklist.selected_model }}</td>
+                                    <td>{{ entry.checklist.status|title }}</td>
+                                    <td>
+                                        <a href="{% url 'checklist_detail' checklist_id=entry.checklist.id %}" 
+                                           class="btn btn-sm btn-info">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">No recent entries found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh the page every 5 minutes to keep shift information current
+    setTimeout(function() {
+        location.reload();
+    }, 300000);
+
+    // Enable tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+</script>
+{% endblock %}
