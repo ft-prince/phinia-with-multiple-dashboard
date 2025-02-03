@@ -3,30 +3,30 @@
 {% block title %}Operator Dashboard{% endblock %}
 
 {% block content %}
-<div class="container">
+<div class="container mt-4">
     <!-- Shift Information -->
     <div class="row mb-4">
         <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
+            <div class="card shadow-sm" style="background-color: #2C3E50; color: #ECF0F1;">
+                <div class="card-header text-white" style="background-color: #1ABC9C;">
                     <h5 class="mb-0">Current Shift Information</h5>
                 </div>
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-3">
-                            <h6 class="mb-1">Current Time</h6>
+                            <h6 class="text-info">Current Time</h6>
                             <p class="h4 mb-0" id="currentTime">{{ current_time|time:"H:i" }}</p>
                         </div>
                         <div class="col-md-3">
-                            <h6 class="mb-1">Date</h6>
+                            <h6 class="text-info">Date</h6>
                             <p class="mb-0">{{ current_date|date:"d M Y" }}</p>
                         </div>
                         <div class="col-md-3">
-                            <h6 class="mb-1">Shift</h6>
+                            <h6 class="text-info">Shift</h6>
                             <p class="mb-0">{{ current_shift }}</p>
                         </div>
                         <div class="col-md-3">
-                            <h6 class="mb-1">Operator</h6>
+                            <h6 class="text-info">Operator</h6>
                             <p class="mb-0">{{ request.user.username }}</p>
                         </div>
                     </div>
@@ -38,20 +38,22 @@
     <!-- Active Checklist and Next Subgroup Time -->
     <div class="row mb-4">
         <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Active Checklist Status</h5>
+            <div class="card shadow-lg" style="background: linear-gradient(135deg, #3498DB, #9B59B6); color: #fff;">
+                <div class="card-header text-white" style="background-color: #34495E;">
+                    <h5 class="mb-0">Daily Verification/ Inspection Sheet Status</h5>
                 </div>
                 <div class="card-body">
                     {% if active_checklist %}
                         <div class="row align-items-center">
                             <div class="col-md-4">
-                                <h6>Current Status</h6>
-                                <p class="mb-0">Subgroups Completed: {{ active_checklist.subgroup_entries.count }}/6</p>
+                                <h6 class="text-warning">Current Status</h6>
+                                <p class="mb-0">Subgroups Completed: 
+                                    <strong>{{ active_checklist.subgroup_entries.count }}/6</strong>
+                                </p>
                             </div>
                             <div class="col-md-4">
                                 {% if time_remaining %}
-                                    <div class="alert alert-warning">
+                                    <div class="alert alert-warning text-dark" style="">
                                         <h6 class="mb-1">Next Subgroup Available In:</h6>
                                         <p class="h4 mb-0" id="timeRemaining" 
                                            data-seconds="{{ time_remaining.seconds }}">
@@ -59,13 +61,13 @@
                                         </p>
                                     </div>
                                 {% elif can_add_subgroup %}
-                                    <div class="alert alert-success">
+                                    <div class="alert alert-success text-dark">
                                         <strong>You can now add a new subgroup!</strong>
                                     </div>
                                 {% endif %}
                             </div>
                             <div class="col-md-4">
-                                <div class="d-grid">
+                                <div class="d-grid gap-2">
                                     {% if can_add_subgroup %}
                                         <a href="{% url 'add_subgroup' checklist_id=active_checklist.id %}" 
                                            class="btn btn-success">
@@ -73,7 +75,7 @@
                                         </a>
                                     {% endif %}
                                     <a href="{% url 'checklist_detail' checklist_id=active_checklist.id %}" 
-                                       class="btn btn-info mt-2">
+                                       class="btn btn-outline-light mt-2">
                                         <i class="fas fa-eye me-1"></i> View Checklist Details
                                     </a>
                                 </div>
@@ -81,7 +83,7 @@
                         </div>
                     {% else %}
                         <div class="text-center">
-                            <p class="mb-3">No active checklist for current shift</p>
+                            <p class="mb-3 text-warning">No active checklist for the current shift</p>
                             {% if can_create_new %}
                                 <a href="{% url 'create_checklist' %}" class="btn btn-primary">
                                     <i class="fas fa-plus me-1"></i> Start New Checklist

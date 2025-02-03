@@ -7,8 +7,8 @@
     <!-- Shift Information -->
     <div class="row mb-4">
         <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
+            <div class="card shadow-sm" style="background-color: #2C3E50; color: #ECF0F1;">
+                <div class="card-header text-white" style="background-color: #1ABC9C;">
                     <h5 class="mb-0">Current Shift Information</h5>
                 </div>
                 <div class="card-body">
@@ -38,8 +38,8 @@
     <!-- Pending Verifications -->
     <div class="row mb-4">
         <div class="col">
-            <div class="card">
-                <div class="card-header bg-warning d-flex justify-content-between align-items-center">
+            <div class="card shadow-sm" style="background-color: #ECF0F1;">
+                <div class="card-header text-white" style="background-color: #E67E22;">
                     <h5 class="mb-0">Pending Verifications</h5>
                     <span class="badge bg-light text-dark">{{ verification_summary.pending_count }} Pending</span>
                 </div>
@@ -76,7 +76,7 @@
                                     </td>
                                     <td>
                                         <a href="{% url 'verify_subgroup_measurement' subgroup.id %}" 
-                                           class="btn btn-primary btn-sm">Verify Now</a>
+                                           class="btn btn-teal btn-sm text-grey">Verify Now</a>
                                         <a href="{% url 'checklist_detail' subgroup.checklist.id %}" 
                                            class="btn btn-outline-secondary btn-sm">View Details</a>
                                     </td>
@@ -96,8 +96,8 @@
     <!-- Today's Verifications -->
     <div class="row">
         <div class="col">
-            <div class="card">
-                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <div class="card shadow-sm" style="background-color: #ECF0F1;">
+                <div class="card-header text-white" style="background-color: #27AE60;">
                     <h5 class="mb-0">Today's Verifications</h5>
                     <span class="badge bg-light text-dark">{{ verification_summary.verified_today }} Verified</span>
                 </div>
@@ -152,22 +152,10 @@
 
 {% block extra_js %}
 <script>
-    // Update current time
     function updateTime() {
-        const timeElement = document.getElementById('currentTime');
-        const now = new Date();
-        timeElement.textContent = now.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false 
-        });
+        document.getElementById('currentTime').textContent = new Date().toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit', hour12: false });
     }
-    
     setInterval(updateTime, 1000);
-
-    // Refresh page every 5 minutes
-    setTimeout(function() {
-        location.reload();
-    }, 300000);
+    setTimeout(function() { location.reload(); }, 300000);
 </script>
 {% endblock %}

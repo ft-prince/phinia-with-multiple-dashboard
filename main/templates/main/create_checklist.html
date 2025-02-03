@@ -31,7 +31,7 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="mb-3">
-                                        <label for="selected_model" class="form-label">Select Model *</label>
+                                        <label for="selected_model" class="form-label">Program selection on HMI (HMI से Program select करना है) *</label>
                                         {{ form.selected_model }}
                                     </div>
                                 </div>
@@ -44,23 +44,23 @@
                             <div class="row">
                                 <div class="col-md-4">
                                     <div class="mb-3">
-                                        <label for="line_pressure" class="form-label">Line Pressure (4.5 - 5.5 bar) *</label>
+                                        <label for="line_pressure" class="form-label">Line Pressure *</label>
                                         {{ form.line_pressure }}
-                                        <div class="form-text">Range: 4.5 - 5.5 bar</div>
+                                        <div class="form-text text-muted">Recommended Range: 4.5 - 5.5 bar</div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="mb-3">
-                                        <label for="uv_flow_input_pressure" class="form-label">UV Flow Input Pressure *</label>
+                                        <label for="uv_flow_input_pressure" class="form-label">UV Flow Input Test Pressure (13+/- 2 KPa) *</label>
                                         {{ form.uv_flow_input_pressure }}
-                                        <div class="form-text">Range: 11-15 kPa</div>
+                                        <div class="form-text text-muted">Recommended Range: 11-15 kPa</div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="mb-3">
-                                        <label for="test_pressure_vacuum" class="form-label">Test Pressure Vacuum *</label>
+                                        <label for="test_pressure_vacuum" class="form-label">Test Pressure for Vacuum generation *</label>
                                         {{ form.test_pressure_vacuum }}
-                                        <div class="form-text">Range: 0.25 - 0.3 MPa</div>
+                                        <div class="form-text text-muted">Recommended Range: 0.25 - 0.3 MPa</div>
                                     </div>
                                 </div>
                             </div>
@@ -72,25 +72,25 @@
                             <div class="row">
                                 <div class="col-md-3">
                                     <div class="mb-3">
-                                        <label for="oring_condition" class="form-label">O-ring Condition *</label>
+                                        <label for="oring_condition" class="form-label">O-ring condition (UV Flow check sealing area) (O-ring सील की स्थिति सही होनी चाहिए) *</label>
                                         {{ form.oring_condition }}
                                     </div>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="mb-3">
-                                        <label for="master_verification_lvdt" class="form-label">LVDT Verification *</label>
+                                        <label for="master_verification_lvdt" class="form-label">Master Verification for LVDT *</label>
                                         {{ form.master_verification_lvdt }}
                                     </div>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="mb-3">
-                                        <label for="good_bad_master_verification" class="form-label">Good/Bad Master Check *</label>
+                                        <label for="good_bad_master_verification" class="form-label">Good/Bad master verification (refer EPVS) *</label>
                                         {{ form.good_bad_master_verification }}
                                     </div>
                                 </div>
                                 <div class="col-md-3">
                                     <div class="mb-3">
-                                        <label for="tool_alignment" class="form-label">Tool Alignment *</label>
+                                        <label for="tool_alignment" class="form-label">Tool Alignment (Top & Bottom) (Tool Alignment) सही होना चाहिए *</label>
                                         {{ form.tool_alignment }}
                                     </div>
                                 </div>
@@ -98,63 +98,64 @@
                         </div>
 
                         <!-- Part Numbers Section -->
-<div class="mb-4">
-    <h6 class="border-bottom pb-2">IDs and Part Numbers</h6>
-    <div class="row">
-        <div class="col-md-4">
-            <div class="mb-3">
-                <label for="top_tool_id" class="form-label">Top Tool ID *</label>
-                {{ form.top_tool_id }}
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="mb-3">
-                <label for="bottom_tool_id" class="form-label">Bottom Tool ID *</label>
-                {{ form.bottom_tool_id }}
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="mb-3">
-                <label for="uv_assy_stage_id" class="form-label">UV Assembly Stage ID *</label>
-                {{ form.uv_assy_stage_id }}
-            </div>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-md-4">
-            <div class="mb-3">
-                <label for="retainer_part_no" class="form-label">Retainer Part No *</label>
-                {{ form.retainer_part_no }}
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="mb-3">
-                <label for="uv_clip_part_no" class="form-label">UV Clip Part No *</label>
-                {{ form.uv_clip_part_no }}
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="mb-3">
-                <label for="umbrella_part_no" class="form-label">Umbrella Part No *</label>
-                {{ form.umbrella_part_no }}
-            </div>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-md-6">
-            <div class="mb-3">
-                <label for="retainer_id_lubrication" class="form-label">Retainer ID Lubrication *</label>
-                {{ form.retainer_id_lubrication }}
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="mb-3">
-                <label for="error_proofing_verification" class="form-label">Error Proofing Verification *</label>
-                {{ form.error_proofing_verification }}
-            </div>
-        </div>
-    </div>
-</div>
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2">IDs and Part Numbers</h6>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="top_tool_id" class="form-label">Tool Id: Top Tool ID : FMA-03-35- T05 (P703/U704/SA/FD/Gnome) *</label>
+                                        {{ form.top_tool_id }}
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="bottom_tool_id" class="form-label">Bottom Tool ID: FMA-03-35-T06 (P703/U704/SA/FD) FMA-03-35-T08 (Gnome) *</label>
+                                        {{ form.bottom_tool_id }}
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="uv_assy_stage_id" class="form-label">UV Assy Stage 1 ID: FMA-03-35- T07 (P703/U704/SA/FD) FMA-03-35-T09 (Gnome) *</label>
+                                        {{ form.uv_assy_stage_id }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="retainer_part_no" class="form-label">Retainer Part no - 42001878 (P703/U704/SA/FD) 42050758 (Gnome) *</label>
+                                        {{ form.retainer_part_no }}
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="uv_clip_part_no" class="form-label">UV Clip Part No - 42000829 (P703/U704/SA/FD) 42000829 (Gnome) *</label>
+                                        {{ form.uv_clip_part_no }}
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="umbrella_part_no" class="form-label">Umbrella Part No - 25094588 (P703/U704/SA/FD/Gnome) *</label>
+                                        {{ form.umbrella_part_no }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="retainer_id_lubrication" class="form-label">Retainer ID lubrication *</label>
+                                        {{ form.retainer_id_lubrication }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="error_proofing_verification" class="form-label">All Error proofing / Error detection verification done *</label>
+                                        {{ form.error_proofing_verification }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary">Create Checklist and Continue to Subgroup 1</button>
                             <a href="{% url 'operator_dashboard' %}" class="btn btn-secondary">Cancel</a>
@@ -177,27 +178,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const uvPressure = parseFloat(form.uv_flow_input_pressure.value);
         const testPressure = parseFloat(form.test_pressure_vacuum.value);
         
-        let isValid = true;
-        let errorMessage = [];
+        let warningMessage = [];
 
+        // Check for values outside recommended ranges
         if (linePressure < 4.5 || linePressure > 5.5) {
-            errorMessage.push('Line pressure must be between 4.5 and 5.5 bar');
-            isValid = false;
+            warningMessage.push('Warning: Line pressure value ' + linePressure + ' bar is outside recommended range (4.5 - 5.5 bar)');
         }
 
         if (uvPressure < 11 || uvPressure > 15) {
-            errorMessage.push('UV flow input pressure must be between 11 and 15 kPa');
-            isValid = false;
+            warningMessage.push('Warning: UV flow input pressure ' + uvPressure + ' kPa is outside recommended range (11-15 kPa)');
         }
 
         if (testPressure < 0.25 || testPressure > 0.3) {
-            errorMessage.push('Test pressure vacuum must be between 0.25 and 0.3 MPa');
-            isValid = false;
+            warningMessage.push('Warning: Test pressure vacuum ' + testPressure + ' MPa is outside recommended range (0.25 - 0.3 MPa)');
         }
 
-        if (!isValid) {
-            e.preventDefault();
-            alert(errorMessage.join('\n'));
+        // Show warning but don't prevent submission
+        if (warningMessage.length > 0) {
+            const proceed = confirm(warningMessage.join('\n\n') + '\n\nDo you want to proceed with these values?');
+            if (!proceed) {
+                e.preventDefault();
+            }
         }
     });
 });

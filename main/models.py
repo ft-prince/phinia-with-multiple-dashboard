@@ -8,7 +8,7 @@ class User(AbstractUser):
         ('shift_supervisor', 'Shift Supervisor'),
         ('quality_supervisor', 'Quality Supervisor'),
     )
-    
+    company_id=models.CharField(max_length=100,blank=True,null=True)    
     user_type = models.CharField(max_length=20, choices=USER_TYPES)
 
 class Shift(models.Model):
@@ -25,6 +25,9 @@ class Shift(models.Model):
 
     class Meta:
         unique_together = ('date', 'shift_type')
+
+from django.db import models
+from django.contrib.auth.models import AbstractUser
 
 class ChecklistBase(models.Model):
     """Base checklist information filled once per shift"""
@@ -43,46 +46,141 @@ class ChecklistBase(models.Model):
         ('rejected', 'Rejected'),
     )
 
-    shift = models.ForeignKey(Shift, on_delete=models.CASCADE)
+    OK_NG_CHOICES = [('OK', 'OK'), ('NG', 'NG')]
+    YES_NO_CHOICES = [('Yes', 'Yes'), ('No', 'No')]
+
+    TOP_TOOL_CHOICES = [
+        ('FMA-03-35-T05', 'FMA-03-35-T05 (P703/U704/SA/FD/Gnome)'),
+    ]
+
+    BOTTOM_TOOL_CHOICES = [
+        ('FMA-03-35-T06', 'FMA-03-35-T06 (P703/U704/SA/FD)'),
+        ('FMA-03-35-T08', 'FMA-03-35-T08 (Gnome)'),
+    ]
+
+    UV_ASSY_STAGE_CHOICES = [
+        ('FMA-03-35-T07', 'FMA-03-35-T07 (P703/U704/SA/FD)'),
+        ('FMA-03-35-T09', 'FMA-03-35-T09 (Gnome)'),
+    ]
+
+    RETAINER_PART_CHOICES = [
+        ('42001878', '42001878 (P703/U704/SA/FD)'),
+        ('42050758', '42050758 (Gnome)'),
+    ]
+
+    UV_CLIP_PART_CHOICES = [
+        ('42000829', '42000829 (P703/U704/SA/FD)'),
+        ('42000829', '42000829 (Gnome)'),  # Same number for both
+    ]
+
+    UMBRELLA_PART_CHOICES = [
+        ('25094588', '25094588 (P703/U704/SA/FD/Gnome)'),
+    ]
+
+    shift = models.ForeignKey('Shift', on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # One-time entries
-    selected_model = models.CharField(max_length=10, choices=MODEL_CHOICES)
+    # Program selection and basic measurements
+    selected_model = models.CharField(
+        max_length=10, 
+        choices=MODEL_CHOICES,
+        verbose_name="Program selection on HMI (HMI से Program select करना है)"
+    )
+    
     line_pressure = models.FloatField(
-        validators=[MinValueValidator(4.5), MaxValueValidator(5.5)],
-        help_text="Range: 4.5 - 5.5 bar"
+        help_text="Recommended Range: 4.5 - 5.5 bar"
     )
-    oring_condition = models.CharField(max_length=2, choices=[('OK', 'OK'), ('NG', 'NG')])
+    
+    oring_condition = models.CharField(
+        max_length=2,
+        choices=OK_NG_CHOICES,
+        verbose_name="O-ring condition (UV Flow check sealing area) (O-ring सील की स्थिति सही होनी चाहिए)"
+    )
+    
     uv_flow_input_pressure = models.FloatField(
-        validators=[MinValueValidator(11), MaxValueValidator(15)],
-        help_text="Range: 11-15 kPa"
+        help_text="Recommended Range: 11-15 kPa",
+        verbose_name="UV Flow input Test Pressure (13+/- 2 KPa)"
     )
-    master_verification_lvdt = models.CharField(max_length=2, choices=[('OK', 'OK'), ('NG', 'NG')])
-    good_bad_master_verification = models.CharField(max_length=2, choices=[('OK', 'OK'), ('NG', 'NG')])
+    
+    # Verifications
+    master_verification_lvdt = models.CharField(
+        max_length=2,
+        choices=OK_NG_CHOICES,
+        verbose_name="Master Verification for LVDT"
+    )
+    
+    good_bad_master_verification = models.CharField(
+        max_length=2,
+        choices=OK_NG_CHOICES,
+        verbose_name="Good and Bad master verification (refer EPVS)"
+    )
+    
     test_pressure_vacuum = models.FloatField(
-        validators=[MinValueValidator(0.25), MaxValueValidator(0.3)],
-        help_text="Range: 0.25 - 0.3 MPa"
+        help_text="Recommended Range: 0.25 - 0.3 MPa",
+        verbose_name="Test Pressure for Vacuum generation"
     )
-    tool_alignment = models.CharField(max_length=2, choices=[('OK', 'OK'), ('NG', 'NG')])
+    
+    tool_alignment = models.CharField(
+        max_length=2,
+        choices=OK_NG_CHOICES,
+        verbose_name="Tool Alignment (Top & Bottom) (Tool Alignment) सही होना चाहिए"
+    )
     
     # Tool IDs and Part Numbers
-    top_tool_id = models.CharField(max_length=100)
-    bottom_tool_id = models.CharField(max_length=100)
-    uv_assy_stage_id = models.CharField(max_length=100)
-    retainer_part_no = models.CharField(max_length=100)
-    uv_clip_part_no = models.CharField(max_length=100)
-    umbrella_part_no = models.CharField(max_length=100)
+    top_tool_id = models.CharField(
+        max_length=100,
+        choices=TOP_TOOL_CHOICES,
+        verbose_name="Top Tool ID"
+    )
     
-    # Additional one-time checks
-    retainer_id_lubrication = models.CharField(max_length=2, choices=[('OK', 'OK'), ('NG', 'NG')])
-    error_proofing_verification = models.CharField(max_length=3, choices=[('Yes', 'Yes'), ('No', 'No')])
+    bottom_tool_id = models.CharField(
+        max_length=100,
+        choices=BOTTOM_TOOL_CHOICES,
+        verbose_name="Bottom Tool ID"
+    )
+    
+    uv_assy_stage_id = models.CharField(
+        max_length=100,
+        choices=UV_ASSY_STAGE_CHOICES,
+        verbose_name="UV Assy Stage 1 ID"
+    )
+    
+    retainer_part_no = models.CharField(
+        max_length=100,
+        choices=RETAINER_PART_CHOICES,
+        verbose_name="Retainer Part no"
+    )
+    
+    uv_clip_part_no = models.CharField(
+        max_length=100,
+        choices=UV_CLIP_PART_CHOICES,
+        verbose_name="UV Clip Part No"
+    )
+    
+    umbrella_part_no = models.CharField(
+        max_length=100,
+        choices=UMBRELLA_PART_CHOICES,
+        verbose_name="Umbrella Part No"
+    )
+    
+    # Additional checks
+    retainer_id_lubrication = models.CharField(
+        max_length=2,
+        choices=OK_NG_CHOICES,
+        verbose_name="Retainer ID lubrication"
+    )
+    
+    error_proofing_verification = models.CharField(
+        max_length=3,
+        choices=YES_NO_CHOICES,
+        verbose_name="All Error proofing / Error detection verification done"
+    )
 
     class Meta:
         ordering = ['-created_at']
 
 class SubgroupEntry(models.Model):
-    
     """Repeated measurements taken every 2 hours"""
     VERIFICATION_STATUS_CHOICES = (
         ('pending', 'Pending'),
@@ -90,36 +188,58 @@ class SubgroupEntry(models.Model):
         ('quality_verified', 'Quality Verified'),
         ('rejected', 'Rejected'),
     )    
+
+    OK_NG_CHOICES = [('OK', 'OK'), ('NG', 'NG')]
+    YES_NO_CHOICES = [('Yes', 'Yes'), ('No', 'No')]
+
     checklist = models.ForeignKey(ChecklistBase, on_delete=models.CASCADE, related_name='subgroup_entries')
     subgroup_number = models.PositiveIntegerField()
     timestamp = models.DateTimeField(auto_now_add=True)
     verification_status = models.CharField(
         max_length=20, 
         choices=VERIFICATION_STATUS_CHOICES,
-        default='pending', blank=True
+        default='pending',
+        blank=True
     )
 
     # Repeated measurements
     uv_vacuum_test = models.FloatField(
-        validators=[MinValueValidator(-43), MaxValueValidator(-35)],
-        help_text="Range: -35 to -43 kPa"
+        help_text="Recommended Range: -35 to -43 kPa",
+        verbose_name="UV Vacuum Test range"
     )
+    
     uv_flow_value = models.FloatField(
-        validators=[MinValueValidator(30), MaxValueValidator(40)],
-        help_text="Range: 30-40 LPM"
+        help_text="Recommended Range: 30-40 LPM",
+        verbose_name="UV Flow Value (HMI)"
     )
-    umbrella_valve_assembly = models.CharField(max_length=2, choices=[('OK', 'OK'), ('NG', 'NG')])
-    uv_clip_pressing = models.CharField(max_length=2, choices=[('OK', 'OK'), ('NG', 'NG')])
-    workstation_clean = models.CharField(max_length=3, choices=[('Yes', 'Yes'), ('No', 'No')])
-    bin_contamination_check = models.CharField(max_length=3, choices=[('Yes', 'Yes'), ('No', 'No')])
+    
+    umbrella_valve_assembly = models.CharField(
+        max_length=2,
+        choices=OK_NG_CHOICES,
+        verbose_name="Umbrella Valve Assembly in Retainer in UV Assy Station"
+    )
+    
+    uv_clip_pressing = models.CharField(
+        max_length=2,
+        choices=OK_NG_CHOICES,
+        verbose_name="UV Clip pressing -proper locking of 2 nos snap"
+    )
+    
+    workstation_clean = models.CharField(
+        max_length=3,
+        choices=YES_NO_CHOICES,
+        verbose_name="All workstations are clean (वर्कस्टेशन साफ होना चाहिए)"
+    )
+    
+    bin_contamination_check = models.CharField(
+        max_length=3,
+        choices=YES_NO_CHOICES,
+        verbose_name="Station Operator will confirm that every bin feeded on line is free from contamination (PTGW_5.3_PC_GUR_03)"
+    )
 
     class Meta:
         ordering = ['subgroup_number']
-        unique_together = ['checklist', 'subgroup_number']
-
-    def get_latest_verification(self):
-        return self.verifications.order_by('-verified_at').first()
-    
+        unique_together = ['checklist', 'subgroup_number']    
     @property
     def current_status(self):
         """Get current verification status based on verifications"""

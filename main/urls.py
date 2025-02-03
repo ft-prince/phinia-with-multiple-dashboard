@@ -18,7 +18,7 @@ urlpatterns = [
     path('history/operator/', views.operator_history, name='operator_history'),
     path('history/supervisor/', views.supervisor_history, name='supervisor_history'),
     path('history/quality/', views.quality_history, name='quality_history'),
-
+path('checklist/<int:checklist_id>/export/', views.export_checklist_excel, name='export_checklist_excel'),
     # Checklist URLs
     path('checklist/create/', views.create_checklist, name='create_checklist'),
     path('checklist/<int:checklist_id>/', views.checklist_detail, name='checklist_detail'),

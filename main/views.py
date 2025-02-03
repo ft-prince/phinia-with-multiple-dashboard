@@ -33,6 +33,9 @@ def register_user(request):
             login(request, user)
             messages.success(request, 'Registration successful!')
             return redirect('dashboard')
+        else:
+            print(form.errors)  # Debugging: Prints errors in console
+            messages.error(request, 'Registration failed. Please correct the errors below.')
     else:
         form = UserRegistrationForm()
     return render(request, 'main/register.html', {'form': form})
@@ -129,14 +132,18 @@ from django.utils import timezone
 
 @login_required
 def operator_dashboard(request):
-    current_datetime = timezone.now()
+    current_datetime = timezone.localtime(timezone.now())  # Use localtime
     current_date = current_datetime.date()
     current_time = current_datetime.time()
     
-    # Shift determination
-    is_day_shift = (8 <= current_time.hour < 20)
+    # Shift determination - check exact hour
+    hour = current_datetime.hour
+    is_day_shift = (8 <= hour < 20)  # Between 8 AM and 8 PM
     current_shift = 'day' if is_day_shift else 'night'
     current_shift_display = 'Day Shift (8 AM - 8 PM)' if is_day_shift else 'Night Shift (8 PM - 8 AM)'
+    
+    # Debug time info (you can remove this later)
+    print(f"Current time: {current_time}, Hour: {hour}, Is day shift: {is_day_shift}")
     
     # Get active checklist
     active_checklist = ChecklistBase.objects.filter(
@@ -146,13 +153,14 @@ def operator_dashboard(request):
         status='pending'
     ).prefetch_related('subgroup_entries').first()
     
-    # Calculate next subgroup time
+    # Calculate next subgroup time and remaining time
     next_subgroup_time = None
     time_remaining = None
     if active_checklist:
         last_subgroup = active_checklist.subgroup_entries.order_by('-timestamp').first()
         if last_subgroup:
-            next_time = last_subgroup.timestamp + timedelta(hours=2)
+            # Use localtime for comparison
+            next_time = timezone.localtime(last_subgroup.timestamp) + timedelta(hours=2)
             if next_time > current_datetime:
                 time_remaining = next_time - current_datetime
 
@@ -164,7 +172,8 @@ def operator_dashboard(request):
             if not last_subgroup:
                 can_add_subgroup = True
             else:
-                time_since_last = current_datetime - last_subgroup.timestamp
+                # Use localtime for comparison
+                time_since_last = current_datetime - timezone.localtime(last_subgroup.timestamp)
                 can_add_subgroup = time_since_last >= timedelta(hours=2)
 
     context = {
@@ -179,13 +188,15 @@ def operator_dashboard(request):
     }
     
     return render(request, 'main/operator_dashboard.html', context)
+
 def check_time_gap(last_subgroup):
     """Helper function to check if enough time has passed since last subgroup"""
     if not last_subgroup:
         return True
-    time_difference = timezone.now() - last_subgroup.timestamp
+    current_time = timezone.localtime(timezone.now())
+    last_time = timezone.localtime(last_subgroup.timestamp)
+    time_difference = current_time - last_time
     return time_difference >= timedelta(hours=2)
-
 
 
 
@@ -249,8 +260,7 @@ def add_subgroup(request, checklist_id):
         time_since_last = timezone.now() - last_subgroup.timestamp
         if time_since_last < timedelta(hours=2):
             remaining_time = timedelta(hours=2) - time_since_last
-            messages.error(request, f'Please wait {remaining_time.seconds//60} minutes before adding next subgroup')
-            return redirect('checklist_detail', checklist_id=checklist.id)
+            messages.warning(request, f'Note: Recommended to wait {remaining_time.seconds//60} minutes before adding next subgroup')
     
     if request.method == 'POST':
         form = SubgroupEntryForm(request.POST)
@@ -258,10 +268,27 @@ def add_subgroup(request, checklist_id):
             subgroup = form.save(commit=False)
             subgroup.checklist = checklist
             subgroup.subgroup_number = current_subgroup
-            subgroup.verification_status = 'pending'  # Set initial verification status
+            subgroup.verification_status = 'pending'
+            
+            # Check for out-of-range values and add warnings
+            warnings = []
+            
+            uv_vacuum = float(form.cleaned_data['uv_vacuum_test'])
+            if not (-43 <= uv_vacuum <= -35):
+                warnings.append(f'UV vacuum test value {uv_vacuum} kPa is outside recommended range (-43 to -35 kPa)')
+            
+            uv_flow = float(form.cleaned_data['uv_flow_value'])
+            if not (30 <= uv_flow <= 40):
+                warnings.append(f'UV flow value {uv_flow} LPM is outside recommended range (30-40 LPM)')
+            
+            # Save the subgroup regardless of warnings
             subgroup.save()
             
-            # Show message about pending verification but don't block
+            # Show warnings as info messages
+            for warning in warnings:
+                messages.warning(request, warning)
+            
+            # Show message about pending verification
             if last_subgroup and last_subgroup.verification_status == 'pending':
                 messages.info(request, f'Note: Subgroup {last_subgroup.subgroup_number} is still pending verification')
             
@@ -279,33 +306,48 @@ def add_subgroup(request, checklist_id):
         'current_subgroup': current_subgroup,
         'previous_subgroup_status': last_subgroup.verification_status if last_subgroup else None
     })    
-    
-
 
 @login_required
 def validate_subgroup(request):
     """API endpoint for validating subgroup data"""
     if request.method == 'POST':
         data = request.POST
-        errors = []
+        warnings = []
         
-        # Validate UV vacuum test
-        uv_vacuum = float(data.get('uv_vacuum_test', 0))
-        if not (-43 <= uv_vacuum <= -35):
-            errors.append("UV vacuum test must be between -43 and -35 kPa")
-        
-        # Validate UV flow value
-        uv_flow = float(data.get('uv_flow_value', 0))
-        if not (30 <= uv_flow <= 40):
-            errors.append("UV flow value must be between 30 and 40 LPM")
-        
-        return JsonResponse({
-            'is_valid': len(errors) == 0,
-            'errors': errors
-        })
+        try:
+            # Check UV vacuum test
+            uv_vacuum = float(data.get('uv_vacuum_test', 0))
+            if not (-43 <= uv_vacuum <= -35):
+                warnings.append({
+                    'field': 'uv_vacuum_test',
+                    'message': f'UV vacuum test value {uv_vacuum} kPa is outside recommended range (-43 to -35 kPa)',
+                    'value': uv_vacuum,
+                    'recommended_range': {'min': -43, 'max': -35}
+                })
+            
+            # Check UV flow value
+            uv_flow = float(data.get('uv_flow_value', 0))
+            if not (30 <= uv_flow <= 40):
+                warnings.append({
+                    'field': 'uv_flow_value',
+                    'message': f'UV flow value {uv_flow} LPM is outside recommended range (30-40 LPM)',
+                    'value': uv_flow,
+                    'recommended_range': {'min': 30, 'max': 40}
+                })
+            
+            return JsonResponse({
+                'has_warnings': len(warnings) > 0,
+                'warnings': warnings,
+                'is_valid': True  # Always valid as we're only showing warnings
+            })
+            
+        except (TypeError, ValueError) as e:
+            return JsonResponse({
+                'is_valid': False,
+                'errors': ['Please enter valid numerical values']
+            })
     
     return JsonResponse({'error': 'Invalid request method'}, status=400)
-
 
 @login_required
 def add_concern(request, checklist_id):
@@ -799,6 +841,204 @@ def reports_dashboard(request):
     return render(request, 'main/reports/reports_dashboard.html', context)
 
 
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from datetime import datetime
+
+def export_checklist_excel(request, checklist_id):
+    checklist = get_object_or_404(
+        ChecklistBase.objects.select_related(
+            'shift__operator',
+            'shift__shift_supervisor',
+            'shift__quality_supervisor'
+        ).prefetch_related(
+            'subgroup_entries__verifications',
+        ), 
+        id=checklist_id
+    )
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Quality Control Data"
+    
+    # Styles
+    header_style = {
+        'fill': PatternFill(start_color='4F81BD', end_color='4F81BD', fill_type='solid'),
+        'font': Font(bold=True, color='FFFFFF'),
+        'alignment': Alignment(horizontal='center', vertical='center', wrap_text=True)
+    }
+    
+    subheader_style = {
+        'fill': PatternFill(start_color='DCE6F1', end_color='DCE6F1', fill_type='solid'),
+        'font': Font(bold=True),
+        'alignment': Alignment(horizontal='center', vertical='center', wrap_text=True)
+    }
+    
+    pass_style = {
+        'fill': PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid'),
+        'font': Font(color='006100'),
+        'alignment': Alignment(horizontal='center', vertical='center')
+    }
+    
+    fail_style = {
+        'fill': PatternFill(start_color='FFC7CE', end_color='FFC7CE', fill_type='solid'),
+        'font': Font(color='9C0006'),
+        'alignment': Alignment(horizontal='center', vertical='center')
+    }
+    
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+
+    def apply_style(cell, style):
+        cell.fill = style['fill']
+        cell.font = style['font']
+        cell.alignment = style['alignment']
+        cell.border = border
+
+    # Header row for date and shift info
+    ws['A1'] = 'Date:'
+    ws['B1'] = checklist.shift.date.strftime('%Y-%m-%d')
+    ws['D1'] = 'Shift:'
+    ws['E1'] = checklist.shift.get_shift_type_display()
+
+    # Subgroup headers
+    ws['A3'] = 'CHARACTERISTICS'
+    apply_style(ws['A3'], header_style)
+    
+    # Get ordered subgroups
+    subgroups = checklist.subgroup_entries.all().order_by('subgroup_number')
+    
+    # Create subgroup headers
+    for sg_num in range(1, 5):
+        start_col = 2 + (sg_num - 1) * 5
+        for i in range(5):
+            col = get_column_letter(start_col + i)
+            ws.merge_cells(f'{col}3:{col}4')
+            ws[f'{col}3'] = f'Sub Group {sg_num}\nSample {i+1}'
+            apply_style(ws[f'{col}3'], header_style)
+
+    # Record Time row
+    current_row = 4
+    ws['A4'] = 'Record Time'
+    for sg in subgroups:
+        col_start = 2 + (sg.subgroup_number - 1) * 5
+        time_str = sg.timestamp.strftime('%H:%M')
+        for i in range(5):
+            col = get_column_letter(col_start + i)
+            ws[f'{col}5'] = time_str
+
+    current_row = 5
+
+    # Single value entries
+    single_entries = [
+        ('Program selection on HMI (HMI से Program select करना है)', checklist.selected_model),
+        ('Line pressure (4.5 - 5.5 bar)', checklist.line_pressure),
+        ('O-ring conditon(UV Flow check sealing area), should not be damaged', checklist.oring_condition),
+        ('UV Flow input Test Pressure(13+/- 2 KPa) (11-15) kPA', checklist.uv_flow_input_pressure),
+    ]
+
+    for entry_name, value in single_entries:
+        ws[f'A{current_row}'] = entry_name
+        ws[f'B{current_row}'] = value
+        current_row += 1
+
+    # Measurements with 5 samples per subgroup
+    measurements = [
+        ('UV Vaccum Test range(-35 to -43 KPa)', 'uv_vacuum_test', lambda x: -43 <= x <= -35),
+        ('UV Flow Value (30~40 LPM)(HMI)', 'uv_flow_value', lambda x: 30 <= x <= 40),
+    ]
+
+    for measurement_name, attr, validation_func in measurements:
+        ws[f'A{current_row}'] = measurement_name
+        for sg in subgroups:
+            col_start = 2 + (sg.subgroup_number - 1) * 5
+            value = getattr(sg, attr)
+            for i in range(5):
+                col = get_column_letter(col_start + i)
+                ws[f'{col}{current_row}'] = value
+                apply_style(ws[f'{col}{current_row}'], 
+                          pass_style if validation_func(value) else fail_style)
+        current_row += 1
+
+    # Single-value fields without repetition
+    for field_name, attr in [
+        ('Master Verification for LVDT (OK/NG)', 'master_verification_lvdt'),
+        ('Good and Bad master verification (refer EPVS)', 'good_bad_master_verification'),
+        ('Test Pressure for Vacumm generation (0.25 ~ 0.3 Mpa)', 'test_pressure_vacuum'),
+        ('Tool Alignmnet (Top & Bottom)', 'tool_alignment'),
+        ('Tool Id: Top Tool ID : FMA-03-35- T05 (P703/U704/SA/FD/Gnome)', 'top_tool_id'),
+        ('Bottom Tool ID: FMA-03-35-T06 (P703/U704/SA/FD)', 'bottom_tool_id'),
+        ('UV Assy Stage 1 ID: FMA-03-35- T07 (P703/U704/SA/FD)', 'uv_assy_stage_id'),
+        ('Retainer Part no - 42001878 (P703/U704/SA/FD)', 'retainer_part_no'),
+        ('UV Clip Part No -  42000829 (P703/U704/SA/FD)', 'uv_clip_part_no'),
+        ('Umbrella Part No - 25094588 (P703/U704/SA/FD/Gnome)', 'umbrella_part_no'),
+        ('Retainer ID lubrication', 'retainer_id_lubrication'),
+    ]:
+        ws[f'A{current_row}'] = field_name
+        value = getattr(checklist, attr)
+        ws[f'B{current_row}'] = value
+        if attr in ['master_verification_lvdt', 'good_bad_master_verification', 'tool_alignment', 'retainer_id_lubrication']:
+            apply_style(ws[f'B{current_row}'], 
+                       pass_style if value == 'OK' else fail_style)
+        current_row += 1
+
+    # Repeated checks with 5 samples per subgroup
+    repeated_checks = [
+        ('Umbrella Valve Assembly in Retainer in UV Assy Station', 'umbrella_valve_assembly'),
+        ('UV Clip pressing -proper locking of 2 nos snap', 'uv_clip_pressing'),
+        ('All workstations are clean (Y/N) वर्कस्टेशन साफ होना चाहिए (हाँ/ना)', 'workstation_clean'),
+        ('Station Operator will confirm that every bin feeded on line is free from contamination (Y/N) PTGW_5.3_PC_GUR_03', 'bin_contamination_check')
+    ]
+
+    for check_name, attr in repeated_checks:
+        ws[f'A{current_row}'] = check_name
+        for sg in subgroups:
+            col_start = 2 + (sg.subgroup_number - 1) * 5
+            value = getattr(sg, attr)
+            for i in range(5):
+                col = get_column_letter(col_start + i)
+                ws[f'{col}{current_row}'] = value
+                apply_style(ws[f'{col}{current_row}'], 
+                          pass_style if value in ['OK', 'Yes'] else fail_style)
+        current_row += 1
+
+    # Signatures section - one column per subgroup
+    current_row += 1
+    for signature_row, role in [
+        ('Team Leader/Operator initial', 'operator'),
+        ('Shift Supervisor Initials', 'shift_supervisor'),
+        ('Quality Supervisor Initials', 'quality_supervisor')
+    ]:
+        ws[f'A{current_row}'] = signature_row
+        for sg in subgroups:
+            col_start = 2 + (sg.subgroup_number - 1) * 5
+            name = getattr(checklist.shift, role).get_full_name() or getattr(checklist.shift, role).username
+            for i in range(5):
+                col = get_column_letter(col_start + i)
+                ws[f'{col}{current_row}'] = name
+        current_row += 1
+
+    # Set column widths
+    ws.column_dimensions['A'].width = 60
+    for i in range(1, 21):
+        col = get_column_letter(i + 1)
+        ws.column_dimensions[col].width = 12
+
+    # Generate response
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename=quality_control_{checklist.id}_{datetime.now().strftime("%Y%m%d")}.xlsx'
+    
+    wb.save(response)
+    return response
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -1411,34 +1651,73 @@ def edit_profile(request):
 # API Views
 @login_required
 def validate_checklist(request):
-    """API endpoint for validating checklist data"""
+    """API endpoint for validating checklist data with warnings instead of errors"""
     if request.method == 'POST':
         data = request.POST
-        errors = []
+        warnings = []
         
-        # Validate line pressure
-        line_pressure = float(data.get('line_pressure', 0))
-        if not (4.5 <= line_pressure <= 5.5):
-            errors.append("Line pressure must be between 4.5 and 5.5 bar")
-        
-        # Validate UV flow test pressure
-        uv_pressure = float(data.get('uv_flow_test_pressure', 0))
-        if not (11 <= uv_pressure <= 15):
-            errors.append("UV flow test pressure must be between 11 and 15 kPa")
-        
-        # Validate UV vacuum test
-        uv_vacuum = float(data.get('uv_vacuum_test', 0))
-        if not (-43 <= uv_vacuum <= -35):
-            errors.append("UV vacuum test must be between -43 and -35 kPa")
-        
-        return JsonResponse({
-            'is_valid': len(errors) == 0,
-            'errors': errors
-        })
+        try:
+            # Validate line pressure
+            line_pressure = float(data.get('line_pressure', 0))
+            if not (4.5 <= line_pressure <= 5.5):
+                warnings.append({
+                    'field': 'line_pressure',
+                    'message': f'Line pressure value {line_pressure} bar is outside recommended range (4.5 - 5.5 bar)',
+                    'value': line_pressure,
+                    'recommended_range': {
+                        'min': 4.5,
+                        'max': 5.5,
+                        'unit': 'bar'
+                    }
+                })
+            
+            # Validate UV flow test pressure
+            uv_pressure = float(data.get('uv_flow_test_pressure', 0))
+            if not (11 <= uv_pressure <= 15):
+                warnings.append({
+                    'field': 'uv_flow_test_pressure',
+                    'message': f'UV flow test pressure value {uv_pressure} kPa is outside recommended range (11 - 15 kPa)',
+                    'value': uv_pressure,
+                    'recommended_range': {
+                        'min': 11,
+                        'max': 15,
+                        'unit': 'kPa'
+                    }
+                })
+            
+            # Validate UV vacuum test
+            uv_vacuum = float(data.get('uv_vacuum_test', 0))
+            if not (-43 <= uv_vacuum <= -35):
+                warnings.append({
+                    'field': 'uv_vacuum_test',
+                    'message': f'UV vacuum test value {uv_vacuum} kPa is outside recommended range (-43 to -35 kPa)',
+                    'value': uv_vacuum,
+                    'recommended_range': {
+                        'min': -43,
+                        'max': -35,
+                        'unit': 'kPa'
+                    }
+                })
+            
+            return JsonResponse({
+                'is_valid': True,  # Always valid as we're only showing warnings
+                'has_warnings': len(warnings) > 0,
+                'warnings': warnings,
+                'values': {  # Return validated values for reference
+                    'line_pressure': line_pressure,
+                    'uv_flow_test_pressure': uv_pressure,
+                    'uv_vacuum_test': uv_vacuum
+                }
+            })
+            
+        except (TypeError, ValueError) as e:
+            return JsonResponse({
+                'is_valid': False,
+                'errors': ['Please enter valid numerical values'],
+                'details': str(e)
+            })
     
-    return JsonResponse({'error': 'Invalid request method'}, status=400)
-
-    
+    return JsonResponse({'error': 'Invalid request method'}, status=400)    
 @login_required
 def operator_history(request):
     # Get all checklists grouped by date

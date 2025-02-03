@@ -99,33 +99,11 @@
 {% block content %}
 <div class="container">
 
-    <!-- Critical Issues Alert -->
-    {% if measurement_validation.critical_issues %}
-    <div class="alert-container bg-red-50 p-4 mb-6">
-        <div class="flex items-start space-x-4">
-            <div class="flex-shrink-0">
-                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                </svg>
-            </div>
-            <div>
-                <h3 class="text-lg font-medium text-red-800">Quality Control Issues Detected</h3>
-                <div class="mt-2 text-sm text-red-700">
-                    <ul class="list-disc pl-5 space-y-1">
-                        {% for issue in measurement_validation.critical_issues %}
-                        <li>{{ issue.message }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
+  
     
     
     <!-- Header Information -->
-    <div class="card">
-        <!-- Header -->
+    <div class="card mb-4">
         <div class="card-header bg-primary text-white rounded-top">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
@@ -137,262 +115,283 @@
                         <i class="fas fa-clipboard-check me-2"></i>
                         {{ subgroup_metrics.total_count }}/6 Measurements
                     </div>
-                    {% comment %} <div class="status-badge rounded 
-                        {% if checklist.status == 'pending' %}bg-warning
-                        {% elif checklist.status == 'supervisor_approved' %}bg-info
-                        {% elif checklist.status == 'quality_approved' %}bg-success
-                        {% else %}bg-danger{% endif %}">
-                        <i class="fas fa-circle-check me-2"></i>
-                        {{ checklist.get_status_display }}
-                    </div> {% endcomment %}
+                    <a href="{% url 'export_checklist_excel' checklist.id %}" 
+                       class="px-3 py-2 bg-white bg-opacity-25 rounded text-white hover:bg-opacity-30 text-decoration-none">
+                        <i class="fas fa-download me-2"></i>
+                        Export Excel
+                    </a>
                 </div>
             </div>
         </div>
-
-        <!-- Main Content -->
-        <div class="card-body p-4">
-            <div class="row g-4">
-                <!-- Production Information -->
-                <div class="col-md-6 col-lg-3">
-                    <div class="info-card h-100 p-4 border rounded">
-                        <div class="metric-icon text-primary">
-                            <i class="fas fa-industry"></i>
-                        </div>
-                        <h6 class="text-muted mb-4">Production Information</h6>
-                        <div class="mb-3">
-                            <div class="metric-label">Date</div>
-                            <div class="metric-value">{{ checklist.shift.date }}</div>
-                        </div>
-                        <div>
-                            <div class="metric-label">Shift</div>
-                            <div class="metric-value">{{ checklist.shift.get_shift_type_display }}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Personnel -->
-                <div class="col-md-6 col-lg-3">
-                    <div class="info-card h-100 p-4 border rounded">
-                        <div class="metric-icon text-success">
-                            <i class="fas fa-user-gear"></i>
-                        </div>
-                        <h6 class="text-muted mb-4">Personnel</h6>
-                        <div class="mb-3">
-                            <div class="metric-label">Operator</div>
-                            <div class="metric-value">{{ checklist.shift.operator.username }}</div>
-                        </div>
-                        <div>
-                            <div class="metric-label">Program Selection (HMI)</div>
-                            <div class="metric-value">{{ checklist.selected_model }}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Timing -->
-                <div class="col-md-6 col-lg-3">
-                    <div class="info-card h-100 p-4 border rounded">
-                        <div class="metric-icon text-info">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <h6 class="text-muted mb-4">Timing Metrics</h6>
-                        <div class="mb-3">
-                            <div class="metric-label">Started</div>
-                            <div class="metric-value">{{ checklist.created_at|date:"Y-m-d H:i" }}</div>
-                        </div>
-                        <div>
-                            <div class="metric-label">Duration</div>
-                            <div class="metric-value">{{ timing_metrics.total_duration|floatformat:1 }} hours</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Progress -->
-                <div class="col-md-6 col-lg-3">
-                    <div class="info-card h-100 p-4 border rounded">
-                        <div class="metric-icon text-warning">
-                            <i class="fas fa-chart-line"></i>
-                        </div>
-                        <h6 class="text-muted mb-4">Status & Progress</h6>
-                        <div class="mb-3">
-                            <div class="metric-label">Completion</div>
-                            <div class="progress mb-2">
-                                <div class="progress-bar {% if subgroup_metrics.completion_percentage == 100 %}bg-success{% else %}bg-primary{% endif %}"
-                                     role="progressbar"
-                                     style="width: {{ subgroup_metrics.completion_percentage }}%">
+                <!-- Main Info Cards -->
+                <div class="card-body p-4">
+                    <div class="row g-4">
+                        <!-- Production Information -->
+                        <div class="col-md-6 col-lg-3">
+                            <div class="info-card h-100 p-4 border rounded">
+                                <div class="metric-icon text-primary">
+                                    <i class="fas fa-industry"></i>
+                                </div>
+                                <h6 class="text-muted mb-4">Production Information</h6>
+                                <div class="mb-3">
+                                    <div class="metric-label">Date</div>
+                                    <div class="metric-value">{{ checklist.shift.date }}</div>
+                                </div>
+                                <div>
+                                    <div class="metric-label">Shift</div>
+                                    <div class="metric-value">{{ checklist.shift.get_shift_type_display }}</div>
                                 </div>
                             </div>
-                            <div class="metric-value text-end">
-                                {{ subgroup_metrics.completion_percentage|floatformat:0 }}%
+                        </div>
+        
+                        <!-- Personnel -->
+                        <div class="col-md-6 col-lg-3">
+                            <div class="info-card h-100 p-4 border rounded">
+                                <div class="metric-icon text-success">
+                                    <i class="fas fa-user-gear"></i>
+                                </div>
+                                <h6 class="text-muted mb-4">Personnel</h6>
+                                <div class="mb-3">
+                                    <div class="metric-label">Operator</div>
+                                    <div class="metric-value">{{ checklist.shift.operator.get_full_name }}</div>
+                                </div>
+                                <div>
+                                    <div class="metric-label">Program selection on HMI  (HMI से Program select करना है)</div>
+                                    <div class="metric-value">{{ checklist.selected_model }}</div>
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <div class="metric-label">Current Status</div>
-                            <div class="metric-value">{{ checklist.get_status_display }}</div>
+        
+                        <!-- Progress -->
+                        <div class="col-md-6 col-lg-3">
+                            <div class="info-card h-100 p-4 border rounded">
+                                <div class="metric-icon text-warning">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <h6 class="text-muted mb-4">Status & Progress</h6>
+                                <div class="mb-3">
+                                    <div class="metric-label">Completion</div>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar {% if subgroup_metrics.completion_percentage == 100 %}bg-success{% else %}bg-primary{% endif %}"
+                                             role="progressbar"
+                                             style="width: {{ subgroup_metrics.completion_percentage }}%">
+                                        </div>
+                                    </div>
+                                    <div class="metric-value text-end">
+                                        {{ subgroup_metrics.completion_percentage|floatformat:0 }}%
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="metric-label">Current Status</div>
+                                    <div class="metric-value">{{ checklist.get_status_display }}</div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <!-- Verifications -->
+                        <div class="col-md-6 col-lg-3">
+                            <div class="info-card h-100 p-4 border rounded">
+                                <div class="metric-icon text-info">
+                                    <i class="fas fa-check-double"></i>
+                                </div>
+                                <h6 class="text-muted mb-4">Verification Status</h6>
+                                <div class="mb-3">
+                                    <div class="metric-label">Supervisor</div>
+                                    <div class="metric-value">
+                                        {% if checklist.status == 'supervisor_approved' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="metric-label">Quality</div>
+                                    <div class="metric-value">
+                                        {% if checklist.status == 'quality_approved' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        
+<!-- Initial Measurements -->
+    <!-- Initial Quality Control Card -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-lg">
+                <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
+                    <h5 class="mb-0">Initial Quality Control Measurements</h5>
+                    <span class="badge {% if measurement_validation.all_base_ok %}bg-success{% else %}bg-warning{% endif %}">
+                        {% if measurement_validation.all_base_ok %}
+                            All Parameters Within Range
+                        {% else %}
+                            Parameters Outside Recommended Range
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Measurements Section -->
+                    <div class="mb-4">
+                        <h6 class="border-bottom pb-2 mb-3">Process Measurements</h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 40%">Parameter</th>
+                                        <th style="width: 20%">Value</th>
+                                        <th style="width: 40%">Recommended Range</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Line Pressure</td>
+                                        <td class="text-center">
+                                            <span class="validation-badge badge {% if measurement_validation.base_measurements.line_pressure_ok %}bg-success{% else %}bg-warning{% endif %}">
+                                                {{ checklist.line_pressure }} bar
+                                            </span>
+                                        </td>
+                                        <td class="text-muted">4.5 - 5.5 bar</td>
+                                    </tr>
+                                    <tr>
+                                        <td>UV Flow Input Test Pressure</td>
+                                        <td class="text-center">
+                                            <span class="validation-badge badge {% if measurement_validation.base_measurements.uv_flow_input_ok %}bg-success{% else %}bg-warning{% endif %}">
+                                                {{ checklist.uv_flow_input_pressure }} kPa
+                                            </span>
+                                        </td>
+                                        <td class="text-muted">11 - 15 kPa</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Test Pressure for Vacuum Generation</td>
+                                        <td class="text-center">
+                                            <span class="validation-badge badge {% if measurement_validation.base_measurements.test_pressure_ok %}bg-success{% else %}bg-warning{% endif %}">
+                                                {{ checklist.test_pressure_vacuum }} MPa
+                                            </span>
+                                        </td>
+                                        <td class="text-muted">0.25 - 0.3 MPa</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Quality Checks Section -->
+                    <div class="mb-4">
+                        <h6 class="border-bottom pb-2 mb-3">Quality Checks</h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 60%">Check Parameter</th>
+                                        <th style="width: 40%">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>O-ring Condition (UV Flow Check Sealing Area)</td>
+                                        <td class="text-center">
+                                            <span class="badge {% if checklist.oring_condition == 'OK' %}bg-success{% else %}bg-warning{% endif %} px-4">
+                                                {{ checklist.oring_condition }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Master Verification for LVDT</td>
+                                        <td class="text-center">
+                                            <span class="badge {% if checklist.master_verification_lvdt == 'OK' %}bg-success{% else %}bg-warning{% endif %} px-4">
+                                                {{ checklist.master_verification_lvdt }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Good and Bad Master Verification</td>
+                                        <td class="text-center">
+                                            <span class="badge {% if checklist.good_bad_master_verification == 'OK' %}bg-success{% else %}bg-warning{% endif %} px-4">
+                                                {{ checklist.good_bad_master_verification }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Tool Alignment (Top & Bottom)</td>
+                                        <td class="text-center">
+                                            <span class="badge {% if checklist.tool_alignment == 'OK' %}bg-success{% else %}bg-warning{% endif %} px-4">
+                                                {{ checklist.tool_alignment }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tool IDs and Part Numbers Section -->
+                    <div>
+                        <h6 class="border-bottom pb-2 mb-3">Tool IDs and Part Numbers</h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 30%">Component</th>
+                                        <th style="width: 70%">Identification</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Top Tool ID</td>
+                                        <td>{{ checklist.top_tool_id }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Bottom Tool ID</td>
+                                        <td>{{ checklist.bottom_tool_id }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>UV Assy Stage ID</td>
+                                        <td>{{ checklist.uv_assy_stage_id }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Retainer Part No</td>
+                                        <td>{{ checklist.retainer_part_no }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>UV Clip Part No</td>
+                                        <td>{{ checklist.uv_clip_part_no }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Umbrella Part No</td>
+                                        <td>{{ checklist.umbrella_part_no }}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Retainer ID Lubrication</td>
+                                        <td class="text-center">
+                                            <span class="badge {% if checklist.retainer_id_lubrication == 'OK' %}bg-success{% else %}bg-warning{% endif %} px-4">
+                                                {{ checklist.retainer_id_lubrication }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Error Proofing Verification</td>
+                                        <td class="text-center">
+                                            <span class="badge {% if checklist.error_proofing_verification == 'Yes' %}bg-success{% else %}bg-warning{% endif %} px-4">
+                                                {{ checklist.error_proofing_verification }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-<!-- Initial Measurements -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Initial Quality Control Measurements</h5>
-                <span class="badge {% if measurement_validation.all_base_ok %}bg-success{% else %}bg-danger{% endif %}">
-                    {% if measurement_validation.all_base_ok %}All Parameters Within Range{% else %}Parameters Out of Range{% endif %}
-                </span>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <!-- Pressure Measurements -->
-                    <div class="col-md-6">
-                        <table class="table table-sm measurement-table">
-                            <tbody>
-                                <tr>
-                                    <th scope="row">Line pressure  (4.5 - 5.5 bar) </th>
-                                    <td>
-                                        <span class="measurement-value">{{ checklist.line_pressure }} bar</span>
-                                        <span class="validation-badge badge {% if measurement_validation.base_measurements.line_pressure_ok %}bg-success{% else %}bg-danger{% endif %}">
-                                            {% if measurement_validation.base_measurements.line_pressure_ok %}In Range{% else %}Out of Range{% endif %}
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">UV  Flow input Test Pressure(13+/- 2 KPa) (11-15) kPA </th>
-                                    <td>
-                                        <span class="measurement-value">{{ checklist.uv_flow_input_pressure }} kPa</span>
-                                        <span class="validation-badge badge {% if measurement_validation.base_measurements.uv_flow_input_ok %}bg-success{% else %}bg-danger{% endif %}">
-                                            {% if measurement_validation.base_measurements.uv_flow_input_ok %}In Range{% else %}Out of Range{% endif %}
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Test Pressure for Vacumm generation (0.25 ~ 0.3 Mpa)</th>
-                                    <td>
-                                        <span class="measurement-value">{{ checklist.test_pressure_vacuum }} MPa</span>
-                                        <span class="validation-badge badge {% if measurement_validation.base_measurements.test_pressure_ok %}bg-success{% else %}bg-danger{% endif %}">
-                                            {% if measurement_validation.base_measurements.test_pressure_ok %}In Range{% else %}Out of Range{% endif %}
-                                        </span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <!-- Quality Checks -->
-                    <div class="col-md-6">
-                        <table class="table table-sm measurement-table">
-                            <tbody>
-                                <tr>
-                                    <th scope="row">O-ring  conditon(UV Flow check sealing area), should not be damaged (O-ring सील की स्थिति सही होनी चाहिए)</th>
-                                    <td>
-                                        <span class="badge {% if checklist.oring_condition == 'OK' %}bg-success{% else %}bg-danger{% endif %}">
-                                            {{ checklist.oring_condition }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Master Verification for LVDT (OK/NG)</th>
-                                    <td>
-                                        <span class="badge {% if checklist.master_verification_lvdt == 'OK' %}bg-success{% else %}bg-danger{% endif %}">
-                                            {{ checklist.master_verification_lvdt }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Good and Bad master verification (refer EPVS)</th>
-                                    <td>
-                                        <span class="badge {% if checklist.good_bad_master_verification == 'OK' %}bg-success{% else %}bg-danger{% endif %}">
-                                            {{ checklist.good_bad_master_verification }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Tool Alignmnet (Top & Bottom) (Tool Alignment) सही होना चाहिए</th>
-                                    <td>
-                                        <span class="badge {% if checklist.tool_alignment == 'OK' %}bg-success{% else %}bg-danger{% endif %}">
-                                            {{ checklist.tool_alignment }}
-                                        </span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        # Tool IDs and Part Numbers
-                        <table>
 
-                            <tr>
-                                <th scope="row">Tool top_tool_id  </th>
-                                <td>
-                                  
-                                        {{ checklist.top_tool_id }}
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">bottom_tool_id  </th>
-                                <td>
-                                  
-                                        {{ checklist.bottom_tool_id }}
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Tool uv_assy_stage_id  </th>
-                                <td>
-                                  
-                                        {{ checklist.uv_assy_stage_id }}
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Tool retainer_part_no  </th>
-                                <td>
-                                  
-                                        {{ checklist.retainer_part_no }}
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Tool uv_clip_part_no  </th>
-                                <td>
-                                  
-                                        {{ checklist.uv_clip_part_no }}
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr>
-                            <tr>
-                                <th scope="row">Tool umbrella_part_no  </th>
-                                <td>
-                                  
-                                        {{ checklist.umbrella_part_no }}
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Tool retainer_id_lubrication  </th>
-                                <td>
-                                  
-                                        {{ checklist.retainer_id_lubrication }}
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <th scope="row">Tool error_proofing_verification  </th>
-                                <td>
-                                  
-                                        {{ checklist.error_proofing_verification }}
-                                    </span>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Subgroup Measurements -->
 <div class="row mb-4">
@@ -640,61 +639,65 @@
         </div>
     </div>
 
-    <!-- Concerns Section -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Quality Concerns</h5>
+<!-- Concerns Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-lg">
+            <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
+                <h5 class="mb-0">Quality Concerns and Actions</h5>
                 {% if checklist.status != 'quality_approved' %}
-                <a href="{% url 'add_concern' checklist.id %}" class="btn btn-warning">
+                <a href="{% url 'add_concern' checklist.id %}" class="btn btn-light">
                     <i class="fas fa-exclamation-triangle me-2"></i>Report Concern
                 </a>
                 {% endif %}
             </div>
             <div class="card-body">
                 {% if concerns %}
-                <div class="accordion" id="concernsAccordion">
-                    {% for concern in concerns %}
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" 
-                                    data-bs-toggle="collapse" 
-                                    data-bs-target="#collapse-{{ forloop.counter }}">
-                                <div class="d-flex w-100 justify-content-between align-items-center">
-                                    <span>Concern Report #{{ forloop.counter }}</span>
-                                    <span class="badge {% if concern.is_resolved %}bg-success{% else %}bg-warning{% endif %}">
-                                        {% if concern.is_resolved %}Resolved{% else %}Open{% endif %}
-                                    </span>
-                                </div>
-                            </button>
-                        </h2>
-                        <div id="collapse-{{ forloop.counter }}" 
-                             class="accordion-collapse collapse" 
-                             data-bs-parent="#concernsAccordion">
-                            <div class="accordion-body">
-                                <p><strong>Description:</strong><br>{{ concern.concern.concern_identified }}</p>
-                                {% if concern.concern.cause_if_known %}
-                                <p><strong>Root Cause:</strong><br>{{ concern.concern.cause_if_known }}</p>
-                                {% endif %}
-                                {% if concern.concern.action_taken %}
-                                <p><strong>Resolution:</strong><br>{{ concern.concern.action_taken }}</p>
-                                {% endif %}
-                                <div class="mt-3">
-                                    <small class="text-muted">
-                                        Reported: {{ concern.concern.created_at|date:"Y-m-d H:i" }}
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 5%">#</th>
+                                <th style="width: 20%">Concern</th>
+                                <th style="width: 20%">Cause</th>
+                                <th style="width: 25%">Action Taken</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for concern in concerns %}
+                            <tr>
+                                <td class="text-center">{{ forloop.counter }}</td>
+                                <td>{{ concern.concern.concern_identified }}</td>
+                                <td>{{ concern.concern.cause_if_known|default:"" }}</td>
+                                <td>{{ concern.concern.action_taken|default:"Pending" }}</td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <div class="small text-muted mt-1">
+                                        {{ concern.concern.created_at|date:"Y-m-d H:i" }}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
                 {% else %}
-                <p class="text-muted mb-0">No quality concerns reported</p>
+                <div class="text-center py-4">
+                    <p class="text-muted mb-3">No quality concerns reported</p>
+                    {% if checklist.status != 'quality_approved' %}
+                    <a href="{% url 'add_concern' checklist.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-plus-circle me-2"></i>Report New Concern
+                    </a>
+                    {% endif %}
+                </div>
                 {% endif %}
             </div>
         </div>
     </div>
+</div>
 </div>
 </div>
 {% endblock %}

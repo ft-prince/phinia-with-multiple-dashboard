@@ -19,14 +19,16 @@
                                 <div class="mb-3">
                                     <label for="uv_vacuum_test" class="form-label">UV Vacuum Test (kPa) *</label>
                                     {{ form.uv_vacuum_test }}
-                                    <div class="form-text">Range: -43 to -35 kPa</div>
+                                    <div class="form-text text-muted">Recommended Range: -43 to -35 kPa</div>
+                                    <div class="warning-message text-warning" id="uv_vacuum_warning"></div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="uv_flow_value" class="form-label">UV Flow Value (LPM) *</label>
                                     {{ form.uv_flow_value }}
-                                    <div class="form-text">Range: 30-40 LPM</div>
+                                    <div class="form-text text-muted">Recommended Range: 30-40 LPM</div>
+                                    <div class="warning-message text-warning" id="uv_flow_warning"></div>
                                 </div>
                             </div>
                         </div>
@@ -34,26 +36,26 @@
                         <div class="row">
                             <div class="col-md-4">
                                 <div class="mb-3">
-                                    <label for="umbrella_valve_assembly" class="form-label">Umbrella Valve Assembly *</label>
+                                    <label for="umbrella_valve_assembly" class="form-label">Umbrella Valve Assembly in Retainer in UV Assy Station *</label>
                                     {{ form.umbrella_valve_assembly }}
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
-                                    <label for="uv_clip_pressing" class="form-label">UV Clip Pressing *</label>
+                                    <label for="uv_clip_pressing" class="form-label">UV Clip pressing -proper locking of 2 nos snap *</label>
                                     {{ form.uv_clip_pressing }}
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="mb-3">
-                                    <label for="workstation_clean" class="form-label">Workstation Clean *</label>
+                                    <label for="workstation_clean" class="form-label">All workstations are clean (Y/N) वर्कस्टेशन साफ होना चाहिए (हाँ/ना) *</label>
                                     {{ form.workstation_clean }}
                                 </div>
                             </div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="bin_contamination_check" class="form-label">Bin Contamination Check *</label>
+                            <label for="bin_contamination_check" class="form-label">Station Operator will confirm that every bin feeded on line is free from contamination (Y/N) PTGW_5.3_PC_GUR_03 *</label>
                             {{ form.bin_contamination_check }}
                         </div>
 
@@ -74,28 +76,62 @@
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('editSubgroupForm');
     
+    // Real-time validation and warning display
+    function updateWarnings() {
+        const uvVacuum = parseFloat(form.uv_vacuum_test.value);
+        const uvFlow = parseFloat(form.uv_flow_value.value);
+        
+        // Clear previous warnings
+        document.getElementById('uv_vacuum_warning').textContent = '';
+        document.getElementById('uv_flow_warning').textContent = '';
+        
+        // Check UV vacuum test
+        if (!isNaN(uvVacuum) && (uvVacuum < -43 || uvVacuum > -35)) {
+            document.getElementById('uv_vacuum_warning').textContent = 
+                `Current value (${uvVacuum} kPa) is outside recommended range`;
+        }
+
+        // Check UV flow value
+        if (!isNaN(uvFlow) && (uvFlow < 30 || uvFlow > 40)) {
+            document.getElementById('uv_flow_warning').textContent = 
+                `Current value (${uvFlow} LPM) is outside recommended range`;
+        }
+    }
+
+    // Add real-time warning updates
+    form.uv_vacuum_test.addEventListener('input', updateWarnings);
+    form.uv_flow_value.addEventListener('input', updateWarnings);
+    
+    // Form submission handling
     form.addEventListener('submit', function(e) {
         const uvVacuum = parseFloat(form.uv_vacuum_test.value);
         const uvFlow = parseFloat(form.uv_flow_value.value);
         
-        let isValid = true;
-        let errorMessage = [];
+        let warningMessages = [];
 
-        if (uvVacuum < -43 || uvVacuum > -35) {
-            errorMessage.push('UV vacuum test must be between -43 and -35 kPa');
-            isValid = false;
+        if (!isNaN(uvVacuum) && (uvVacuum < -43 || uvVacuum > -35)) {
+            warningMessages.push(`UV vacuum test value (${uvVacuum} kPa) is outside recommended range (-43 to -35 kPa)`);
         }
 
-        if (uvFlow < 30 || uvFlow > 40) {
-            errorMessage.push('UV flow value must be between 30 and 40 LPM');
-            isValid = false;
+        if (!isNaN(uvFlow) && (uvFlow < 30 || uvFlow > 40)) {
+            warningMessages.push(`UV flow value (${uvFlow} LPM) is outside recommended range (30-40 LPM)`);
         }
 
-        if (!isValid) {
-            e.preventDefault();
-            alert(errorMessage.join('\n'));
+        if (warningMessages.length > 0) {
+            const proceed = confirm(
+                'Warning:\n\n' + 
+                warningMessages.join('\n\n') + 
+                '\n\nDo you want to proceed with these values?'
+            );
+            
+            if (!proceed) {
+                e.preventDefault();
+            }
         }
     });
+
+    // Run initial validation
+    updateWarnings();
 });
 </script>
 {% endblock %}

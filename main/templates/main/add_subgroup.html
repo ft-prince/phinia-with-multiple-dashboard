@@ -19,14 +19,14 @@
                                 <div class="mb-3">
                                     <label for="uv_vacuum_test" class="form-label">UV Vacuum Test (kPa) *</label>
                                     {{ form.uv_vacuum_test }}
-                                    <div class="form-text">Range: -43 to -35 kPa</div>
+                                    <div class="form-text text-muted">Recommended Range: -43 to -35 kPa</div>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     <label for="uv_flow_value" class="form-label">UV Flow Value (LPM) *</label>
                                     {{ form.uv_flow_value }}
-                                    <div class="form-text">Range: 30-40 LPM</div>
+                                    <div class="form-text text-muted">Recommended Range: 30-40 LPM</div>
                                 </div>
                             </div>
                         </div>
@@ -78,22 +78,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const uvVacuum = parseFloat(form.uv_vacuum_test.value);
         const uvFlow = parseFloat(form.uv_flow_value.value);
         
-        let isValid = true;
-        let errorMessage = [];
+        let warningMessage = [];
 
+        // Check for values outside recommended ranges
         if (uvVacuum < -43 || uvVacuum > -35) {
-            errorMessage.push('UV vacuum test must be between -43 and -35 kPa');
-            isValid = false;
+            warningMessage.push('Warning: UV vacuum test value ' + uvVacuum + ' kPa is outside recommended range (-43 to -35 kPa)');
         }
 
         if (uvFlow < 30 || uvFlow > 40) {
-            errorMessage.push('UV flow value must be between 30 and 40 LPM');
-            isValid = false;
+            warningMessage.push('Warning: UV flow value ' + uvFlow + ' LPM is outside recommended range (30-40 LPM)');
         }
 
-        if (!isValid) {
-            e.preventDefault();
-            alert(errorMessage.join('\n'));
+        // Show warning but don't prevent submission
+        if (warningMessage.length > 0) {
+            const proceed = confirm(warningMessage.join('\n\n') + '\n\nDo you want to proceed with these values?');
+            if (!proceed) {
+                e.preventDefault();
+            }
         }
     });
 });
