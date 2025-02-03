@@ -49,3 +49,9 @@ def timedelta_format(td):
     if hours > 0:
         return f"{hours}h {minutes}m"
     return f"{minutes}m"
+
+
+@register.filter
+def divisibleby(queryset, verifier_type):
+    """Filter verifications by verifier type"""
+    return queryset.filter(verifier_type=verifier_type).first()

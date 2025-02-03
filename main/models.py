@@ -82,10 +82,22 @@ class ChecklistBase(models.Model):
         ordering = ['-created_at']
 
 class SubgroupEntry(models.Model):
+    
     """Repeated measurements taken every 2 hours"""
+    VERIFICATION_STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('supervisor_verified', 'Supervisor Verified'),
+        ('quality_verified', 'Quality Verified'),
+        ('rejected', 'Rejected'),
+    )    
     checklist = models.ForeignKey(ChecklistBase, on_delete=models.CASCADE, related_name='subgroup_entries')
     subgroup_number = models.PositiveIntegerField()
     timestamp = models.DateTimeField(auto_now_add=True)
+    verification_status = models.CharField(
+        max_length=20, 
+        choices=VERIFICATION_STATUS_CHOICES,
+        default='pending', blank=True
+    )
 
     # Repeated measurements
     uv_vacuum_test = models.FloatField(
@@ -105,6 +117,49 @@ class SubgroupEntry(models.Model):
         ordering = ['subgroup_number']
         unique_together = ['checklist', 'subgroup_number']
 
+    def get_latest_verification(self):
+        return self.verifications.order_by('-verified_at').first()
+    
+    @property
+    def current_status(self):
+        """Get current verification status based on verifications"""
+        latest = self.get_latest_verification()
+        if not latest:
+            return 'pending'
+            
+        if latest.verifier_type == 'supervisor':
+            if latest.status == 'rejected':
+                return 'rejected'
+            return 'supervisor_verified'
+            
+        if latest.verifier_type == 'quality':
+            if latest.status == 'rejected':
+                return 'rejected'
+            return 'quality_verified'
+            
+        return 'pending'
+
+class SubgroupVerification(models.Model):
+    """Verification records for each subgroup entry"""
+    VERIFIER_TYPES = (
+        ('supervisor', 'Shift Supervisor'),
+        ('quality', 'Quality Supervisor'),
+    )
+    
+    subgroup = models.ForeignKey(SubgroupEntry, on_delete=models.CASCADE, related_name='verifications')
+    verified_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    verifier_type = models.CharField(max_length=20, choices=VERIFIER_TYPES)
+    verified_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(
+        max_length=20,
+        choices=SubgroupEntry.VERIFICATION_STATUS_CHOICES
+    )
+    comments = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ['subgroup', 'verifier_type']
+        ordering = ['verified_at']
+
 class Verification(models.Model):
     checklist = models.ForeignKey(ChecklistBase, on_delete=models.CASCADE, related_name='verifications')  # Changed from subgroup
     team_leader = models.ForeignKey(User, on_delete=models.CASCADE, related_name='team_leader_verifications')
@@ -116,9 +171,20 @@ class Verification(models.Model):
 class Concern(models.Model):
     """Concerns and actions taken"""
     checklist = models.ForeignKey(ChecklistBase, on_delete=models.CASCADE)
+    subgroup = models.ForeignKey(SubgroupEntry, on_delete=models.CASCADE, null=True, blank=True)
     concern_identified = models.TextField()
     cause_if_known = models.TextField(blank=True)
     action_taken = models.TextField()
-    manufacturing_approval = models.ForeignKey(User, on_delete=models.CASCADE, related_name='manufacturing_approvals', null=True)
-    quality_approval = models.ForeignKey(User, on_delete=models.CASCADE, related_name='quality_approvals', null=True)
+    manufacturing_approval = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='manufacturing_approvals', 
+        null=True
+    )
+    quality_approval = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='quality_approvals', 
+        null=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)

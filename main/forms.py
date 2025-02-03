@@ -1,5 +1,5 @@
 from django import forms
-from .models import ChecklistBase, SubgroupEntry, Verification, Concern
+from .models import ChecklistBase, SubgroupEntry, Verification, Concern,SubgroupVerification
 
 class ChecklistBaseForm(forms.ModelForm):
     class Meta:
@@ -160,3 +160,30 @@ class CustomAuthenticationForm(AuthenticationForm):
         super().__init__(*args, **kwargs)
         self.fields['username'].widget.attrs.update({'class': 'form-control'})
         self.fields['password'].widget.attrs.update({'class': 'form-control'})            
+        
+        
+        
+        
+        
+class SubgroupVerificationForm(forms.ModelForm):
+    """Form for subgroup verifications"""
+    class Meta:
+        model = SubgroupVerification
+        fields = ['status', 'comments']
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['status'].widget.attrs.update({'class': 'form-control'})
+        self.fields['comments'].widget.attrs.update({
+            'class': 'form-control',
+            'rows': '3'
+        })       
+        
+        
+        
+        
+        
+        
+        
+        
+        

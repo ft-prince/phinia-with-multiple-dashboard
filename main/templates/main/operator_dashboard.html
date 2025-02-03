@@ -12,167 +12,131 @@
                     <h5 class="mb-0">Current Shift Information</h5>
                 </div>
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <h6>Date: {{ current_date }}</h6>
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <h6 class="mb-1">Current Time</h6>
+                            <p class="h4 mb-0" id="currentTime">{{ current_time|time:"H:i" }}</p>
                         </div>
-                        <div class="col-md-4">
-                            <h6>Shift: {{ current_shift }}</h6>
+                        <div class="col-md-3">
+                            <h6 class="mb-1">Date</h6>
+                            <p class="mb-0">{{ current_date|date:"d M Y" }}</p>
                         </div>
-                        <div class="col-md-4">
-                            <h6>Operator: {{ request.user.username }}</h6>
+                        <div class="col-md-3">
+                            <h6 class="mb-1">Shift</h6>
+                            <p class="mb-0">{{ current_shift }}</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h6 class="mb-1">Operator</h6>
+                            <p class="mb-0">{{ request.user.username }}</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-<!-- Add this in the card header section -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card bg-light">
-            <div class="card-body">
-                <h6 class="card-title">Total Checklists</h6>
-                <p class="card-text h4">{{ dashboard_stats.total_checklists }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-success text-white">
-            <div class="card-body">
-                <h6 class="card-title">Approved</h6>
-                <p class="card-text h4">{{ dashboard_stats.approved_checklists }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-danger text-white">
-            <div class="card-body">
-                <h6 class="card-title">Rejected</h6>
-                <p class="card-text h4">{{ dashboard_stats.rejected_checklists }}</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-warning">
-            <div class="card-body">
-                <h6 class="card-title">Pending Verification</h6>
-                <p class="card-text h4">{{ dashboard_stats.pending_verification }}</p>
-            </div>
-        </div>
-    </div>
-</div>
-    <!-- Action Buttons -->
-    <div class="row mb-4">
-        <div class="col-md-12">
-            {% if can_create_new %}
-            <a href="{% url 'create_checklist' %}" class="btn btn-primary">Start New Checklist</a>
-            {% endif %}
-            
-            {% if active_checklist and can_add_subgroup %}
-            <a href="{% url 'add_subgroup' checklist_id=active_checklist.id %}" class="btn btn-success">Add New Subgroup</a>
-            {% endif %}
-        </div>
-    </div>
 
-    <!-- Active Checklist -->
-    {% if active_checklist %}
+    <!-- Active Checklist and Next Subgroup Time -->
     <div class="row mb-4">
         <div class="col-md-12">
             <div class="card">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Active Checklist</h5>
+                    <h5 class="mb-0">Active Checklist Status</h5>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Started At</th>
-                                    <th>Model</th>
-                                    <th>Subgroups Completed</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>{{ active_checklist.created_at|date:"H:i" }}</td>
-                                    <td>{{ active_checklist.selected_model }}</td>
-                                    <td>{{ active_checklist.subgroup_entries.count }}/6</td>
-                                    <td>{{ active_checklist.status|title }}</td>
-                                    <td>
-                                        <a href="{% url 'checklist_detail' checklist_id=active_checklist.id %}" 
-                                           class="btn btn-sm btn-info">View Details</a>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Recent Entries -->
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0">Recent Entries</h5>
-                </div>
-                <div class="card-body">
-                    {% if recent_entries %}
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Shift</th>
-                                    <th>Model</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for entry in recent_entries %}
-                                <tr>
-                                    <td>{{ entry.timestamp|date:"Y-m-d" }}</td>
-                                    <td>{{ entry.checklist.shift.get_shift_type_display }}</td>
-                                    <td>{{ entry.checklist.selected_model }}</td>
-                                    <td>{{ entry.checklist.status|title }}</td>
-                                    <td>
-                                        <a href="{% url 'checklist_detail' checklist_id=entry.checklist.id %}" 
-                                           class="btn btn-sm btn-info">View</a>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                    {% if active_checklist %}
+                        <div class="row align-items-center">
+                            <div class="col-md-4">
+                                <h6>Current Status</h6>
+                                <p class="mb-0">Subgroups Completed: {{ active_checklist.subgroup_entries.count }}/6</p>
+                            </div>
+                            <div class="col-md-4">
+                                {% if time_remaining %}
+                                    <div class="alert alert-warning">
+                                        <h6 class="mb-1">Next Subgroup Available In:</h6>
+                                        <p class="h4 mb-0" id="timeRemaining" 
+                                           data-seconds="{{ time_remaining.seconds }}">
+                                            Calculating...
+                                        </p>
+                                    </div>
+                                {% elif can_add_subgroup %}
+                                    <div class="alert alert-success">
+                                        <strong>You can now add a new subgroup!</strong>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <div class="d-grid">
+                                    {% if can_add_subgroup %}
+                                        <a href="{% url 'add_subgroup' checklist_id=active_checklist.id %}" 
+                                           class="btn btn-success">
+                                            <i class="fas fa-plus-circle me-1"></i> Add New Subgroup
+                                        </a>
+                                    {% endif %}
+                                    <a href="{% url 'checklist_detail' checklist_id=active_checklist.id %}" 
+                                       class="btn btn-info mt-2">
+                                        <i class="fas fa-eye me-1"></i> View Checklist Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                     {% else %}
-                    <p class="text-muted">No recent entries found.</p>
+                        <div class="text-center">
+                            <p class="mb-3">No active checklist for current shift</p>
+                            {% if can_create_new %}
+                                <a href="{% url 'create_checklist' %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i> Start New Checklist
+                                </a>
+                            {% endif %}
+                        </div>
                     {% endif %}
                 </div>
             </div>
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    // Auto-refresh the page every 5 minutes to keep shift information current
+    // Update current time every second
+    function updateTime() {
+        const timeElement = document.getElementById('currentTime');
+        const now = new Date();
+        timeElement.textContent = now.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+        });
+    }
+    
+    setInterval(updateTime, 1000);
+
+    // Update time remaining if exists
+    const timeRemainingElement = document.getElementById('timeRemaining');
+    if (timeRemainingElement) {
+        let totalSeconds = parseInt(timeRemainingElement.dataset.seconds);
+        
+        function updateTimeRemaining() {
+            if (totalSeconds <= 0) {
+                location.reload();
+                return;
+            }
+            
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            timeRemainingElement.textContent = 
+                `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            totalSeconds--;
+        }
+        
+        updateTimeRemaining();
+        setInterval(updateTimeRemaining, 1000);
+    }
+
+    // Refresh page every 5 minutes
     setTimeout(function() {
         location.reload();
     }, 300000);
-
-    // Enable tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
 </script>
 {% endblock %}

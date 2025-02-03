@@ -26,7 +26,7 @@ urlpatterns = [
     path('checklist/<int:checklist_id>/subgroup/<int:subgroup_id>/edit/', views.edit_subgroup, name='edit_subgroup'),  # New
     path('checklist/<int:checklist_id>/concern/add/', views.add_concern, name='add_concern'),  # New
 
-    
+   path('verification/<int:verification_id>/edit/', views.edit_verification, name='edit_verification'), 
     # Verification URLs
     path('checklist/<int:checklist_id>/verify/supervisor/', views.supervisor_verify, name='supervisor_verify'),
     path('checklist/<int:checklist_id>/verify/quality/', views.quality_verify, name='quality_verify'),
@@ -50,5 +50,10 @@ urlpatterns = [
     path('settings/', views.user_settings, name='user_settings'),
     path('settings/notifications/', views.notification_settings, name='notification_settings'),
     path('settings/preferences/', views.user_preferences, name='user_preferences'),
+    
+    path('subgroup/<int:subgroup_id>/verify/', 
+         views.verify_subgroup_measurement, 
+         name='verify_subgroup_measurement'),
+    
 
 ]

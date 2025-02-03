@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.utils import timezone
 from datetime import datetime, time, timedelta
 from .models import ChecklistBase, SubgroupEntry, Verification, Shift, User
-from .forms import ChecklistBaseForm, SubgroupEntryForm, VerificationForm, ConcernForm, UserRegistrationForm
+from .forms import ChecklistBaseForm, SubgroupEntryForm, SubgroupVerificationForm, VerificationForm, ConcernForm, UserRegistrationForm
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
@@ -21,6 +21,9 @@ from datetime import timedelta
 from itertools import chain
 import json
 from django.shortcuts import render
+
+
+
 # Authentication Views
 def register_user(request):
     if request.method == 'POST':
@@ -121,12 +124,16 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from datetime import timedelta
 
+from datetime import datetime, timedelta
+from django.utils import timezone
+
 @login_required
 def operator_dashboard(request):
-    current_date = timezone.now().date()
-    current_time = timezone.now().time()
+    current_datetime = timezone.now()
+    current_date = current_datetime.date()
+    current_time = current_datetime.time()
     
-    # More robust shift determination
+    # Shift determination
     is_day_shift = (8 <= current_time.hour < 20)
     current_shift = 'day' if is_day_shift else 'night'
     current_shift_display = 'Day Shift (8 AM - 8 PM)' if is_day_shift else 'Night Shift (8 PM - 8 AM)'
@@ -137,62 +144,41 @@ def operator_dashboard(request):
         shift__date=current_date,
         shift__shift_type=current_shift,
         status='pending'
-    ).first()
+    ).prefetch_related('subgroup_entries').first()
     
-    # Get recent entries (including subgroups)
-    recent_entries = SubgroupEntry.objects.filter(
-        checklist__shift__operator=request.user
-    ).select_related(
-        'checklist',
-        'checklist__shift'
-    ).exclude(
-        checklist_id=active_checklist.id if active_checklist else None
-    ).order_by('-timestamp')[:10]
-    
-    # Check if can create new checklist
-    can_create_new = not active_checklist
-    
+    # Calculate next subgroup time
+    next_subgroup_time = None
+    time_remaining = None
+    if active_checklist:
+        last_subgroup = active_checklist.subgroup_entries.order_by('-timestamp').first()
+        if last_subgroup:
+            next_time = last_subgroup.timestamp + timedelta(hours=2)
+            if next_time > current_datetime:
+                time_remaining = next_time - current_datetime
+
     # Check if can add subgroup
     can_add_subgroup = False
     if active_checklist:
         subgroup_count = active_checklist.subgroup_entries.count()
         if subgroup_count < 6:
-            last_subgroup = active_checklist.subgroup_entries.order_by('-timestamp').first()
             if not last_subgroup:
                 can_add_subgroup = True
             else:
-                # Check if 2 hours have passed since last subgroup
-                time_difference = timezone.now() - last_subgroup.timestamp
-                can_add_subgroup = time_difference >= timedelta(hours=2)
+                time_since_last = current_datetime - last_subgroup.timestamp
+                can_add_subgroup = time_since_last >= timedelta(hours=2)
 
     context = {
         'current_date': current_date,
+        'current_time': current_time,
         'current_shift': current_shift_display,
         'active_checklist': active_checklist,
-        'recent_entries': recent_entries,
-        'can_create_new': can_create_new,
+        'can_create_new': not active_checklist,
         'can_add_subgroup': can_add_subgroup,
-        'dashboard_stats': {
-            'total_checklists': ChecklistBase.objects.filter(
-                shift__operator=request.user
-            ).count(),
-            'approved_checklists': ChecklistBase.objects.filter(
-                shift__operator=request.user,
-                status='quality_approved'
-            ).count(),
-            'rejected_checklists': ChecklistBase.objects.filter(
-                shift__operator=request.user,
-                status='rejected'
-            ).count(),
-            'pending_verification': ChecklistBase.objects.filter(
-                shift__operator=request.user,
-                status__in=['supervisor_approved', 'pending']
-            ).count()
-        }
+        'next_subgroup_time': next_subgroup_time,
+        'time_remaining': time_remaining
     }
     
     return render(request, 'main/operator_dashboard.html', context)
-
 def check_time_gap(last_subgroup):
     """Helper function to check if enough time has passed since last subgroup"""
     if not last_subgroup:
@@ -234,6 +220,7 @@ def create_checklist(request):
         'form': form,
         'current_shift': current_shift
     })
+
     
 @login_required
 @user_passes_test(lambda u: u.user_type == 'operator')
@@ -249,14 +236,15 @@ def add_subgroup(request, checklist_id):
         messages.error(request, 'Cannot add subgroups to a verified checklist')
         return redirect('checklist_detail', checklist_id=checklist.id)
     
-    current_subgroup = checklist.subgroup_entries.count() + 1
+    # Get latest subgroup 
+    last_subgroup = checklist.subgroup_entries.order_by('-subgroup_number').first()
+    current_subgroup = (last_subgroup.subgroup_number + 1 if last_subgroup else 1)
     
     if current_subgroup > 6:
         messages.error(request, 'Maximum number of subgroups (6) reached')
         return redirect('checklist_detail', checklist_id=checklist.id)
     
-    last_subgroup = checklist.subgroup_entries.last()
-    
+    # Check time gap if there's a previous subgroup
     if last_subgroup:
         time_since_last = timezone.now() - last_subgroup.timestamp
         if time_since_last < timedelta(hours=2):
@@ -270,18 +258,27 @@ def add_subgroup(request, checklist_id):
             subgroup = form.save(commit=False)
             subgroup.checklist = checklist
             subgroup.subgroup_number = current_subgroup
+            subgroup.verification_status = 'pending'  # Set initial verification status
             subgroup.save()
+            
+            # Show message about pending verification but don't block
+            if last_subgroup and last_subgroup.verification_status == 'pending':
+                messages.info(request, f'Note: Subgroup {last_subgroup.subgroup_number} is still pending verification')
+            
             messages.success(request, f'Subgroup {current_subgroup} added successfully')
             return redirect('checklist_detail', checklist_id=checklist.id)
     else:
         form = SubgroupEntryForm()
+        # Show informational message about pending verification
+        if last_subgroup and last_subgroup.verification_status == 'pending':
+            messages.info(request, f'Note: Previous subgroup {last_subgroup.subgroup_number} is pending verification')
     
     return render(request, 'main/add_subgroup.html', {
         'form': form,
         'checklist': checklist,
-        'current_subgroup': current_subgroup
-    })
-    
+        'current_subgroup': current_subgroup,
+        'previous_subgroup_status': last_subgroup.verification_status if last_subgroup else None
+    })    
     
 
 
@@ -368,98 +365,46 @@ def edit_subgroup(request, checklist_id, subgroup_id):
 @login_required
 @user_passes_test(lambda u: u.user_type == 'shift_supervisor')
 def supervisor_dashboard(request):
-    current_date = timezone.now().date()
-    current_time = timezone.now().time()
-    current_shift = 'day' if 8 <= current_time.hour < 20 else 'night'
-    
-    # Get all pending checklists
-    pending_entries = ChecklistBase.objects.filter(
-        status='pending'  # Get all pending checklists
-    ).annotate(
-        subgroup_count=Count('subgroup_entries')
+    current_datetime = timezone.now()
+    current_date = current_datetime.date()
+    current_time = current_datetime.time()
+    is_day_shift = (8 <= current_time.hour < 20)
+    current_shift = 'day' if is_day_shift else 'night'
+    current_shift_display = 'Day Shift (8 AM - 8 PM)' if is_day_shift else 'Night Shift (8 PM - 8 AM)'
+
+    # Get subgroups that need supervisor verification (pending)
+    pending_subgroups = SubgroupEntry.objects.filter(
+        verification_status='pending',
+        checklist__shift__shift_supervisor=request.user,
+        checklist__shift__date=current_date
+    ).select_related(
+        'checklist__shift__operator'
     ).prefetch_related(
-        'subgroup_entries',
-        'shift__operator'
-    ).order_by('-created_at')
+        'verifications'
+    ).order_by('-timestamp')
 
-    # Get all verified entries for today first
-    todays_verifications = ChecklistBase.objects.filter(
-        shift__date=current_date,
-        shift__shift_supervisor=request.user,
-        status__in=['supervisor_approved', 'quality_approved', 'rejected']
-    )
-    
-    # Then get recent verifications
-    recent_verified = ChecklistBase.objects.filter(
-        shift__shift_supervisor=request.user,
-        status__in=['supervisor_approved', 'quality_approved', 'rejected']
-    ).order_by('-created_at')[:10]
-    
-    # Calculate today's statistics
-    total_today = ChecklistBase.objects.filter(
-        shift__date=current_date,
-        shift__shift_supervisor=request.user
-    ).count()
-    
-    approved_today = todays_verifications.filter(
-        status='supervisor_approved'
-    ).count()
-    
-    # Calculate approval rate
-    approval_rate = (
-        round((approved_today / total_today) * 100)
-        if total_today > 0
-        else 0
-    )
-
-    # Add verification status to each pending entry
-    for entry in pending_entries:
-        # Check if all 6 subgroups are completed
-        entry.is_complete = entry.subgroup_count >= 6
-        # Get the latest subgroup
-        entry.latest_subgroup = entry.subgroup_entries.order_by('-timestamp').first()
-        # Add measurement validation
-        entry.measurements_ok = True
-        if entry.subgroup_count > 0:
-            for subgroup in entry.subgroup_entries.all():
-                if not (-43 <= subgroup.uv_vacuum_test <= -35) or \
-                   not (30 <= subgroup.uv_flow_value <= 40):
-                    entry.measurements_ok = False
-                    break
-    # Get all pending checklists with their subgroup counts
-    pending_entries = ChecklistBase.objects.filter(
-        status='pending'
-    ).annotate(
-        subgroup_count=Count('subgroup_entries')
-    ).prefetch_related(
-        'subgroup_entries',
-        'shift__operator'
-    ).order_by('-created_at')
-
-    # Split into complete and incomplete
-    complete_pending = [entry for entry in pending_entries if entry.subgroup_count == 6]
-    incomplete_pending = [entry for entry in pending_entries if entry.subgroup_count < 6]
-
+    # Get supervisor's verifications from today
+    todays_verifications = SubgroupVerification.objects.filter(
+        verified_by=request.user,
+        verifier_type='supervisor',
+        verified_at__date=current_date
+    ).select_related(
+        'subgroup__checklist__shift__operator'
+    ).order_by('-verified_at')
 
     context = {
         'current_date': current_date,
-        'current_shift': current_shift,
-        'pending_entries': pending_entries,
-        'recent_verified': recent_verified,
-        'total_today': total_today,
-        'approved_today': approved_today,
-        'approval_rate': approval_rate,
-        'pending_count': pending_entries.count(),
-        'verified_count': recent_verified.count(),
-        
-
-        'complete_pending': complete_pending,
-        'incomplete_pending': incomplete_pending,
-
+        'current_time': current_time,
+        'current_shift': current_shift_display,
+        'pending_verifications': pending_subgroups,
+        'verified_entries': todays_verifications,
+        'verification_summary': {
+            'pending_count': pending_subgroups.count(),
+            'verified_today': todays_verifications.count()
+        }
     }
     
     return render(request, 'main/supervisor_dashboard.html', context)
-
 
 
 
@@ -524,83 +469,6 @@ def verify_checklist(request, checklist_id):
         'checklist': checklist
     })
 
-@login_required
-@user_passes_test(lambda u: u.user_type == 'quality_supervisor')
-def quality_dashboard(request):
-    current_date = timezone.now().date()
-    current_time = timezone.now().time()
-    is_day_shift = 8 <= current_time.hour < 20
-    current_shift = 'day' if is_day_shift else 'night'
-    current_shift_display = 'Day Shift (8 AM - 8 PM)' if is_day_shift else 'Night Shift (8 PM - 8 AM)'
-
-    # Get in-progress checklists
-    in_progress_checklists = ChecklistBase.objects.filter(
-        status='pending',
-        shift__date=current_date
-    ).prefetch_related(
-        'subgroup_entries',
-        'shift__operator',
-        'shift__shift_supervisor'
-    ).order_by('-created_at')
-
-    # Get pending verifications (supervisor approved)
-    pending_verifications = ChecklistBase.objects.filter(
-        status='supervisor_approved'
-    ).prefetch_related(
-        'subgroup_entries',
-        'shift__operator',
-        'shift__shift_supervisor'
-    ).order_by('-created_at')
-
-    # Get today's entries
-    todays_entries = ChecklistBase.objects.filter(
-        shift__date=current_date,
-        shift__quality_supervisor=request.user
-    )
-    
-    # Get recent verifications with comments
-    recent_verifications = ChecklistBase.objects.filter(
-        status__in=['quality_approved', 'rejected']
-    ).prefetch_related(
-        'subgroup_entries',
-        'shift__operator',
-        'verifications'  # Include verification comments
-    ).order_by('-created_at')[:10]
-
-    # Calculate statistics
-    stats = calculate_quality_stats(todays_entries)
-    
-    # Process measurement validations
-    process_measurements(pending_verifications)
-    process_measurements(in_progress_checklists)
-
-    # Calculate model-wise statistics
-    model_stats = calculate_model_stats(todays_entries)
-
-    # Calculate 7-day trend
-    trend_data = calculate_trend_data(current_date)
-
-    # Calculate average verification times
-    avg_verification_time = calculate_average_verification_time(recent_verifications)
-
-    context = {
-        'current_date': current_date,
-        'current_shift': current_shift_display,
-        'in_progress_checklists': in_progress_checklists,
-        'pending_verifications': pending_verifications,
-        'recent_verifications': recent_verifications,
-        'quality_approved': stats['approved'],
-        'quality_rejected': stats['rejected'],
-        'quality_pending': stats['pending'],
-        'approval_rate': stats['approval_rate'],
-        'model_stats': model_stats,
-        'trend_dates': json.dumps(trend_data['dates']),
-        'trend_rates': json.dumps(trend_data['rates']),
-        'avg_verification_time': avg_verification_time,
-        'critical_issues': get_critical_issues(in_progress_checklists, pending_verifications),
-    }
-    
-    return render(request, 'main/quality_dashboard.html', context)
 
 def calculate_model_stats(entries):
     """Calculate statistics for each model"""
@@ -666,70 +534,203 @@ def calculate_average_verification_time(verifications):
 
 def calculate_quality_stats(entries):
     """Calculate quality statistics"""
-    approved = entries.filter(status='quality_approved').count()
-    rejected = entries.filter(status='rejected').count()
-    pending = entries.filter(status='pending').count()
-    total_processed = approved + rejected
-    
-    return {
-        'approved': approved,
-        'rejected': rejected,
-        'pending': pending,
-        'approval_rate': round((approved / total_processed * 100) if total_processed > 0 else 0)
+    stats = {
+        'approved': entries.filter(status='quality_approved').count(),
+        'rejected': entries.filter(status='rejected').count(),
+        'pending': entries.filter(status__in=['pending', 'supervisor_approved']).count()
     }
+    
+    total_processed = stats['approved'] + stats['rejected']
+    stats['approval_rate'] = round((stats['approved'] / total_processed * 100) if total_processed > 0 else 0)
+    
+    return stats
 
-def process_measurements(entries):
-    """Process measurements and add validation flags"""
-    for entry in entries:
-        entry.subgroup_count = entry.subgroup_entries.count()
-        entry.all_measurements_ok = True
-        entry.measurement_issues = []
-        entry.critical_issues = []
-        
-        # Check base measurements
-        validate_base_measurements(entry)
-        
-        # Check subgroup measurements
-        validate_subgroup_measurements(entry)
+def process_measurements(checklists):
+    """Process and validate measurements for a list of checklists"""
+    processed_entries = []
+    
+    for checklist in checklists:
+        entry_data = {
+            'id': checklist.id,
+            'created_at': checklist.created_at,
+            'shift': checklist.shift,
+            'selected_model': checklist.selected_model,
+            'subgroup_count': checklist.subgroup_entries.count(),
+            'all_measurements_ok': True,
+            'measurement_issues': [],
+            'critical_issues': []
+        }
+
+        # Process subgroups
+        for subgroup in checklist.subgroup_entries.all():
+            # Validate UV Vacuum Test
+            if not (-43 <= subgroup.uv_vacuum_test <= -35):
+                entry_data['measurement_issues'].append(
+                    f"Subgroup {subgroup.subgroup_number}: UV vacuum test out of range ({subgroup.uv_vacuum_test})"
+                )
+                entry_data['all_measurements_ok'] = False
+
+            # Validate UV Flow Value
+            if not (30 <= subgroup.uv_flow_value <= 40):
+                entry_data['measurement_issues'].append(
+                    f"Subgroup {subgroup.subgroup_number}: UV flow value out of range ({subgroup.uv_flow_value})"
+                )
+                entry_data['all_measurements_ok'] = False
+
+            # Check other critical values
+            if not ((4.5 <= checklist.line_pressure <= 5.5) and 
+                   (11 <= checklist.uv_flow_input_pressure <= 15) and
+                   (0.25 <= checklist.test_pressure_vacuum <= 0.3)):
+                entry_data['critical_issues'].append({
+                    'severity': 'critical',
+                    'message': 'Critical measurements out of range',
+                    'measurements': {
+                        'line_pressure': checklist.line_pressure,
+                        'uv_flow_input_pressure': checklist.uv_flow_input_pressure,
+                        'test_pressure_vacuum': checklist.test_pressure_vacuum
+                    }
+                })
+
+        processed_entries.append(entry_data)
+
+    return processed_entries
 
 def validate_base_measurements(entry):
     """Validate base measurements"""
-    if not (4.5 <= entry.line_pressure <= 5.5):
-        entry.all_measurements_ok = False
-        entry.critical_issues.append(f"Line pressure critical: {entry.line_pressure}")
-            
-    if not (11 <= entry.uv_flow_input_pressure <= 15):
-        entry.all_measurements_ok = False
-        entry.critical_issues.append(f"UV flow input pressure critical: {entry.uv_flow_input_pressure}")
+    measurements = {
+        'line_pressure_ok': False,
+        'uv_flow_input_ok': False,
+        'test_pressure_ok': False
+    }
+    
+    try:
+        # Line Pressure validation
+        if hasattr(entry, 'line_pressure'):
+            line_pressure = float(entry.line_pressure)
+            measurements['line_pressure_ok'] = 4.5 <= line_pressure <= 5.5
+            if not measurements['line_pressure_ok']:
+                entry.critical_issues.append(f"Line pressure critical: {line_pressure}")
+        
+        # UV Flow Input validation
+        if hasattr(entry, 'uv_flow_input_pressure'):
+            uv_pressure = float(entry.uv_flow_input_pressure)
+            measurements['uv_flow_input_ok'] = 11 <= uv_pressure <= 15
+            if not measurements['uv_flow_input_ok']:
+                entry.critical_issues.append(f"UV flow input pressure critical: {uv_pressure}")
+        
+        # Test Pressure validation
+        if hasattr(entry, 'test_pressure_vacuum'):
+            test_pressure = float(entry.test_pressure_vacuum)
+            measurements['test_pressure_ok'] = 0.25 <= test_pressure <= 0.3
+            if not measurements['test_pressure_ok']:
+                entry.critical_issues.append(f"Test pressure critical: {test_pressure}")
+    except (ValueError, TypeError):
+        entry.critical_issues.append("Invalid measurement values")
+    
+    return measurements
 
 def validate_subgroup_measurements(entry):
     """Validate subgroup measurements"""
-    for subgroup in entry.subgroup_entries.all():
-        if not (-43 <= subgroup.uv_vacuum_test <= -35):
-            entry.all_measurements_ok = False
-            entry.measurement_issues.append(
-                f"Subgroup {subgroup.subgroup_number}: UV vacuum test out of range ({subgroup.uv_vacuum_test})"
-            )
-        if not (30 <= subgroup.uv_flow_value <= 40):
-            entry.all_measurements_ok = False
-            entry.measurement_issues.append(
-                f"Subgroup {subgroup.subgroup_number}: UV flow value out of range ({subgroup.uv_flow_value})"
-            )
+    subgroup_validations = []
+    
+    try:
+        for subgroup in entry.subgroup_entries.all():
+            validation = {
+                'subgroup_number': subgroup.subgroup_number,
+                'uv_vacuum_test_ok': False,
+                'uv_flow_value_ok': False,
+                'all_ok': True
+            }
+            
+            # UV Vacuum Test validation
+            try:
+                uv_vacuum = float(subgroup.uv_vacuum_test)
+                validation['uv_vacuum_test_ok'] = -43 <= uv_vacuum <= -35
+                if not validation['uv_vacuum_test_ok']:
+                    entry.measurement_issues.append(
+                        f"Subgroup {subgroup.subgroup_number}: UV vacuum test out of range ({uv_vacuum})"
+                    )
+            except (ValueError, TypeError):
+                validation['all_ok'] = False
+            
+            # UV Flow Value validation
+            try:
+                uv_flow = float(subgroup.uv_flow_value)
+                validation['uv_flow_value_ok'] = 30 <= uv_flow <= 40
+                if not validation['uv_flow_value_ok']:
+                    entry.measurement_issues.append(
+                        f"Subgroup {subgroup.subgroup_number}: UV flow value out of range ({uv_flow})"
+                    )
+            except (ValueError, TypeError):
+                validation['all_ok'] = False
+            
+            subgroup_validations.append(validation)
+    except Exception as e:
+        entry.measurement_issues.append(f"Error processing subgroups: {str(e)}")
+    
+    return subgroup_validations
 
 def get_critical_issues(in_progress, pending):
     """Get critical issues from both in-progress and pending checklists"""
     critical_issues = []
     
-    for checklist in chain(in_progress, pending):
-        if hasattr(checklist, 'critical_issues') and checklist.critical_issues:
-            critical_issues.append({
-                'checklist_id': checklist.id,
-                'operator': checklist.shift.operator.username,
-                'model': checklist.selected_model,
-                'issues': checklist.critical_issues
-            })
+    for entries in [in_progress, pending]:
+        for entry in entries:
+            if entry['critical_issues']:
+                critical_issues.append({
+                    'checklist_id': entry['id'],
+                    'operator': entry['original_entry'].shift.operator.username,
+                    'model': entry['original_entry'].selected_model,
+                    'issues': entry['critical_issues']
+                })
     
-    return critical_issues
+
+@login_required
+@user_passes_test(lambda u: u.user_type == 'quality_supervisor')
+def quality_dashboard(request):
+    current_datetime = timezone.now()
+    current_date = current_datetime.date()
+    current_time = current_datetime.time()
+    is_day_shift = (8 <= current_time.hour < 20)
+    current_shift = 'day' if is_day_shift else 'night'
+    current_shift_display = 'Day Shift (8 AM - 8 PM)' if is_day_shift else 'Night Shift (8 PM - 8 AM)'
+
+    # Get subgroups that need quality verification (where supervisor has verified)
+    pending_subgroups = SubgroupEntry.objects.filter(
+        verification_status='supervisor_verified',
+        checklist__shift__quality_supervisor=request.user,
+        checklist__shift__date=current_date
+    ).select_related(
+        'checklist__shift__operator',
+        'checklist__shift__shift_supervisor'
+    ).prefetch_related(
+        'verifications'
+    ).order_by('-timestamp')
+
+    # Get quality verifications done today
+    todays_verifications = SubgroupVerification.objects.filter(
+        verified_by=request.user,
+        verifier_type='quality',
+        verified_at__date=current_date
+    ).select_related(
+        'subgroup__checklist__shift__operator',
+        'subgroup__checklist__shift__shift_supervisor'
+    ).order_by('-verified_at')
+
+    context = {
+        'current_date': current_date,
+        'current_time': current_time,
+        'current_shift': current_shift_display,
+        'pending_verifications': pending_subgroups,
+        'verified_entries': todays_verifications,
+        'verification_stats': {
+            'pending_count': pending_subgroups.count(),
+            'approved_today': todays_verifications.filter(status='approved').count(),
+            'rejected_today': todays_verifications.filter(status='rejected').count()
+        }
+    }
+    
+    return render(request, 'main/quality_dashboard.html', context)
 
 
 @login_required
@@ -814,7 +815,7 @@ def checklist_detail(request, checklist_id):
             'shift__shift_supervisor',
             'shift__quality_supervisor'
         ).prefetch_related(
-            'subgroup_entries',
+            'subgroup_entries__verifications',
             'verifications',
             'concern_set'
         ), 
@@ -871,6 +872,18 @@ def process_subgroups(subgroups):
             'contamination_ok': subgroup.bin_contamination_check == 'Yes'
         }
         subgroup.all_checks_passed = all(subgroup.validation_status.values())
+        
+        # Add verification information
+        subgroup.supervisor_verification = SubgroupVerification.objects.filter(
+            subgroup=subgroup,
+            verifier_type='supervisor'
+        ).first()
+        
+        subgroup.quality_verification = SubgroupVerification.objects.filter(
+            subgroup=subgroup,
+            verifier_type='quality'
+        ).first()
+        
         processed_subgroups.append(subgroup)
     return processed_subgroups
 
@@ -943,6 +956,8 @@ def process_concerns(concerns):
     } for concern in concerns]
     
 
+
+
 def calculate_timing_metrics(checklist, subgroups):
     """Calculate timing related metrics"""
     if not subgroups:
@@ -1003,6 +1018,166 @@ def get_critical_issues(checklist, subgroups):
     
     
     
+    
+    
+from .forms import SubgroupVerificationForm
+from django.db import IntegrityError
+from .models import (
+    ChecklistBase, 
+    SubgroupEntry, 
+    SubgroupVerification, 
+    Shift, 
+    User
+)
+
+@login_required
+@user_passes_test(lambda u: u.user_type in ['shift_supervisor', 'quality_supervisor'])
+def verify_subgroup_measurement(request, subgroup_id):
+    subgroup = get_object_or_404(SubgroupEntry.objects.select_related('checklist'), id=subgroup_id)
+    verifier_type = 'supervisor' if request.user.user_type == 'shift_supervisor' else 'quality'
+    
+    # Get existing verification
+    existing_verification = SubgroupVerification.objects.filter(
+        subgroup=subgroup,
+        verifier_type=verifier_type
+    ).first()
+    
+    # Check verification rules
+    if verifier_type == 'quality':
+        supervisor_verification = SubgroupVerification.objects.filter(
+            subgroup=subgroup,
+            verifier_type='supervisor'
+        ).first()
+        
+        if not supervisor_verification or supervisor_verification.status == 'rejected':
+            messages.error(request, 'Subgroup must be verified by supervisor first')
+            return redirect('checklist_detail', checklist_id=subgroup.checklist.id)
+    
+    if request.method == 'POST':
+        form = SubgroupVerificationForm(request.POST, instance=existing_verification)
+        if form.is_valid():
+            try:
+                verification = form.save(commit=False)
+                verification.subgroup = subgroup
+                verification.verified_by = request.user
+                verification.verifier_type = verifier_type
+                verification.save()
+                
+                # Update subgroup status
+                new_status = None
+                if verification.status == 'rejected':
+                    new_status = 'rejected'
+                elif verifier_type == 'supervisor':
+                    new_status = 'supervisor_verified'
+                else:  # quality supervisor
+                    new_status = 'quality_verified'
+                    
+                subgroup.verification_status = new_status
+                subgroup.save()
+                
+                messages.success(request, 'Verification completed successfully')
+                return redirect('checklist_detail', checklist_id=subgroup.checklist.id)
+                
+            except IntegrityError:
+                messages.error(request, 'An error occurred during verification')
+        else:
+            messages.error(request, 'Please correct the errors below')
+    else:
+        form = SubgroupVerificationForm(instance=existing_verification)
+    
+    # Prepare measurements validation for template
+    measurements = {
+        'uv_vacuum_test': {
+            'value': subgroup.uv_vacuum_test,
+            'is_valid': -43 <= subgroup.uv_vacuum_test <= -35,
+            'range': '-43 to -35 kPa'
+        },
+        'uv_flow_value': {
+            'value': subgroup.uv_flow_value,
+            'is_valid': 30 <= subgroup.uv_flow_value <= 40,
+            'range': '30-40 LPM'
+        },
+        'assembly_ok': subgroup.umbrella_valve_assembly == 'OK',
+        'pressing_ok': subgroup.uv_clip_pressing == 'OK',
+        'cleanliness': {
+            'workstation': subgroup.workstation_clean == 'Yes',
+            'contamination': subgroup.bin_contamination_check == 'Yes'
+        }
+    }
+    
+    context = {
+        'form': form,
+        'subgroup': subgroup,
+        'measurements': measurements,
+        'verifier_type': verifier_type.title(),
+        'existing_verification': existing_verification,
+    }
+    
+    return render(request, 'main/verify_subgroup_measurement.html', context)    
+    
+    
+@login_required
+@user_passes_test(lambda u: u.user_type in ['shift_supervisor', 'quality_supervisor'])
+def edit_verification(request, verification_id):
+    verification = get_object_or_404(SubgroupVerification, id=verification_id)
+    
+    # Check if user has permission to edit this verification
+    if (request.user.user_type == 'shift_supervisor' and verification.verifier_type != 'supervisor') or \
+       (request.user.user_type == 'quality_supervisor' and verification.verifier_type != 'quality'):
+        messages.error(request, 'You do not have permission to edit this verification')
+        return redirect('checklist_detail', checklist_id=verification.subgroup.checklist.id)
+    
+    if request.method == 'POST':
+        form = SubgroupVerificationForm(request.POST, instance=verification)
+        if form.is_valid():
+            verification = form.save(commit=False)
+            verification.verified_at = timezone.now()  # Update verification time
+            verification.save()
+            
+            # Update subgroup status
+            subgroup = verification.subgroup
+            if verification.status == 'rejected':
+                subgroup.verification_status = 'rejected'
+            elif verification.verifier_type == 'supervisor':
+                subgroup.verification_status = 'supervisor_verified'
+            else:  # quality supervisor
+                subgroup.verification_status = 'quality_verified'
+            subgroup.save()
+            
+            messages.success(request, 'Verification updated successfully')
+            return redirect('checklist_detail', checklist_id=verification.subgroup.checklist.id)
+    else:
+        form = SubgroupVerificationForm(instance=verification)
+    
+    context = {
+        'form': form,
+        'verification': verification,
+        'subgroup': verification.subgroup,
+        'measurements': get_subgroup_measurements(verification.subgroup),
+    }
+    
+    return render(request, 'main/edit_verification.html', context)
+
+def get_subgroup_measurements(subgroup):
+    """Helper function to get formatted measurements for a subgroup"""
+    return {
+        'uv_vacuum_test': {
+            'value': subgroup.uv_vacuum_test,
+            'is_valid': -43 <= subgroup.uv_vacuum_test <= -35,
+            'range': '-43 to -35 kPa'
+        },
+        'uv_flow_value': {
+            'value': subgroup.uv_flow_value,
+            'is_valid': 30 <= subgroup.uv_flow_value <= 40,
+            'range': '30-40 LPM'
+        },
+        'assembly_ok': subgroup.umbrella_valve_assembly == 'OK',
+        'pressing_ok': subgroup.uv_clip_pressing == 'OK',
+        'cleanliness': {
+            'workstation': subgroup.workstation_clean == 'Yes',
+            'contamination': subgroup.bin_contamination_check == 'Yes'
+        }
+    }    
 # Verification Views
 @login_required
 @user_passes_test(lambda u: u.user_type == 'shift_supervisor')
@@ -1290,36 +1465,63 @@ def operator_history(request):
 @login_required
 @user_passes_test(lambda u: u.user_type == 'shift_supervisor')
 def supervisor_history(request):
-    entries = ChecklistBase.objects.filter(
-        shift__shift_supervisor=request.user
-    ).order_by('-created_at')
-    
-    pending_verifications = entries.filter(status='pending')
-    verified_entries = entries.filter(status__in=['supervisor_approved', 'quality_approved', 'rejected'])
-    
+    # Get all verifications by this supervisor
+    verifications = SubgroupVerification.objects.filter(
+        verified_by=request.user,
+        verifier_type='supervisor'
+    ).select_related(
+        'subgroup__checklist',
+        'subgroup__checklist__shift__operator'
+    ).order_by('-verified_at')
+
+    # Get subgroups pending verification
+    pending_subgroups = SubgroupEntry.objects.filter(
+        checklist__shift__shift_supervisor=request.user,
+        verification_status='pending'
+    ).select_related(
+        'checklist',
+        'checklist__shift__operator'
+    ).order_by('-timestamp')
+
     return render(request, 'main/history/supervisor_history.html', {
-        'pending_verifications': pending_verifications,
-        'verified_entries': verified_entries,
+        'pending_verifications': pending_subgroups,
+        'verified_entries': verifications,
         'title': 'Supervisor History'
     })
-
 @login_required
 @user_passes_test(lambda u: u.user_type == 'quality_supervisor')
 def quality_history(request):
-    entries = ChecklistBase.objects.filter(
-        shift__quality_supervisor=request.user
-    ).order_by('-created_at')
-    
-    pending_verifications = entries.filter(status='supervisor_approved')
-    verified_entries = entries.filter(status__in=['quality_approved', 'rejected'])
-    
-    return render(request, 'main/history/quality_history.html', {
-        'pending_verifications': pending_verifications,
+    # Get all quality verifications by this supervisor
+    verified_entries = SubgroupVerification.objects.filter(
+        verified_by=request.user,
+        verifier_type='quality'
+    ).select_related(
+        'subgroup__checklist',
+        'subgroup__checklist__shift__operator',
+        'subgroup__checklist__shift__shift_supervisor'
+    ).order_by('-verified_at')
+
+    # Get subgroups that have supervisor verification but no quality verification
+    pending_subgroups = SubgroupEntry.objects.filter(
+        verifications__verifier_type='supervisor',
+        verifications__status='approved'
+    ).exclude(
+        verifications__verifier_type='quality'
+    ).select_related(
+        'checklist',
+        'checklist__shift__operator',
+        'checklist__shift__shift_supervisor'
+    ).prefetch_related(
+        'verifications'
+    ).order_by('-timestamp')
+
+    context = {
+        'pending_verifications': pending_subgroups,
         'verified_entries': verified_entries,
         'title': 'Quality History'
-    })    
-    
-    
+    }
+
+    return render(request, 'main/history/quality_history.html', context)    
 
 @login_required
 def user_settings(request):
@@ -1366,3 +1568,83 @@ def user_preferences(request):
         'user': request.user,
         'active_tab': 'preferences'
     })    
+    
+    
+    
+    
+@login_required
+@user_passes_test(lambda u: u.user_type in ['shift_supervisor', 'quality_supervisor'])
+def verify_subgroup(request, subgroup_id):
+    subgroup = get_object_or_404(SubgroupEntry, id=subgroup_id)
+    verifier_type = 'supervisor' if request.user.user_type == 'shift_supervisor' else 'quality'
+    
+    # Check if subgroup can be verified
+    if verifier_type == 'quality' and subgroup.verification_status != 'supervisor_verified':
+        messages.error(request, 'Subgroup must be verified by supervisor first')
+        return redirect('checklist_detail', checklist_id=subgroup.checklist.id)
+    
+    if request.method == 'POST':
+        form = SubgroupVerificationForm(request.POST)
+        if form.is_valid():
+            verification = form.save(commit=False)
+            verification.subgroup = subgroup
+            verification.verified_by = request.user
+            verification.verifier_type = verifier_type
+            
+            # Update subgroup status based on verification
+            if verification.status == 'rejected':
+                subgroup.verification_status = 'rejected'
+            elif verifier_type == 'supervisor':
+                subgroup.verification_status = 'supervisor_verified'
+            else:  # quality supervisor
+                subgroup.verification_status = 'quality_verified'
+            
+            verification.save()
+            subgroup.save()
+            
+            # Check if all subgroups are verified to update checklist status
+            update_checklist_status(subgroup.checklist)
+            
+            messages.success(request, 'Subgroup verified successfully')
+            return redirect('checklist_detail', checklist_id=subgroup.checklist.id)
+    else:
+        form = SubgroupVerificationForm()
+    
+    context = {
+        'form': form,
+        'subgroup': subgroup,
+        'verifier_type': verifier_type.title(),
+        'measurements': {
+            'uv_vacuum_test_ok': -43 <= subgroup.uv_vacuum_test <= -35,
+            'uv_flow_value_ok': 30 <= subgroup.uv_flow_value <= 40,
+            'assembly_ok': subgroup.umbrella_valve_assembly == 'OK',
+            'pressing_ok': subgroup.uv_clip_pressing == 'OK'
+        }
+    }
+    
+    return render(request, 'main/verify_subgroup.html', context)
+
+def update_checklist_status(checklist):
+    """Update checklist status based on subgroup verifications"""
+    subgroups = checklist.subgroup_entries.all()
+    total_subgroups = subgroups.count()
+    
+    if total_subgroups == 0:
+        return
+    
+    # Count verifications
+    supervisor_verified = subgroups.filter(verification_status='supervisor_verified').count()
+    quality_verified = subgroups.filter(verification_status='quality_verified').count()
+    rejected = subgroups.filter(verification_status='rejected').count()
+    
+    # Update checklist status
+    if rejected > 0:
+        checklist.status = 'rejected'
+    elif quality_verified == total_subgroups:
+        checklist.status = 'quality_approved'
+    elif supervisor_verified == total_subgroups:
+        checklist.status = 'supervisor_approved'
+    else:
+        checklist.status = 'pending'
+    
+    checklist.save()    
